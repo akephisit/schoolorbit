@@ -1,0 +1,88 @@
+# SchoolOrbit API Test Collection
+# Use with REST Client extension in VS Code or similar tools
+
+@baseUrl = http://localhost:8787
+@schoolId = 00000000-0000-0000-0000-000000000001
+
+### 1. Login as Admin
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "actorType": "personnel",
+  "id": "1234567890123",
+  "password": "Passw0rd!",
+  "schoolId": "{{schoolId}}"
+}
+
+### 2. Login as Teacher  
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "actorType": "personnel", 
+  "id": "1234567890123",
+  "password": "Passw0rd!",
+  "schoolId": "{{schoolId}}"
+}
+
+### 3. Login as Student
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "actorType": "student",
+  "id": "STD-650123", 
+  "password": "Passw0rd!",
+  "schoolId": "{{schoolId}}"
+}
+
+### 4. Login as Guardian
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "actorType": "guardian",
+  "id": "9876543210987",
+  "password": "Passw0rd!",
+  "schoolId": "{{schoolId}}"
+}
+
+### 5. Get Current User Info
+GET {{baseUrl}}/auth/me
+
+### 6. Refresh Token
+POST {{baseUrl}}/auth/refresh
+
+### 7. Get Menu (filtered by permissions)
+GET {{baseUrl}}/menu
+
+### 8. Get Dashboard Summary (role-specific)
+GET {{baseUrl}}/dashboard/summary
+
+### 9. Logout
+POST {{baseUrl}}/auth/logout
+
+### Test Error Handling
+
+### Invalid login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "actorType": "personnel",
+  "id": "invalid",
+  "password": "wrong",
+  "schoolId": "{{schoolId}}"
+}
+
+### Missing fields
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "actorType": "personnel"
+}
+
+### Unauthorized access (without login)
+GET {{baseUrl}}/dashboard/summary
