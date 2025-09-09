@@ -79,7 +79,7 @@ where
     type Rejection = StatusCode;
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let auth_user = AuthUser::from_request_parts(parts, state).await?;
+        let _auth_user = AuthUser::from_request_parts(parts, state).await?;
         
         // This is a marker - the actual permission check happens in route handlers
         Ok(RequirePermission(String::new()))

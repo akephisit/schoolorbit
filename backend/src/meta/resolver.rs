@@ -1,4 +1,4 @@
-use sqlx::PgPool;
+use sqlx::{PgPool, Row};
 use uuid::Uuid;
 use std::collections::HashMap;
 
@@ -48,7 +48,7 @@ impl MetaResolver {
         }
 
         // Query meta database for tenant info
-        let result = sqlx::query!(
+        let result = sqlx::query(
             r#"
             SELECT 
                 tdm.school_id,
@@ -56,17 +56,17 @@ impl MetaResolver {
             FROM tenant_domain_map tdm
             JOIN tenant_db_map tdb ON tdm.school_id = tdb.school_id
             WHERE tdm.domain = $1 AND tdb.status = 'active'
-            "#,
-            host
+            "#
         )
+        .bind(host)
         .fetch_optional(&self.meta_pool)
         .await?;
 
         match result {
             Some(row) => {
                 let info = TenantInfo {
-                    school_id: row.school_id,
-                    dsn: row.dsn,
+                    school_id: row.get("school_id"),
+                    dsn: row.get("dsn"),
                 };
                 
                 // Cache the result

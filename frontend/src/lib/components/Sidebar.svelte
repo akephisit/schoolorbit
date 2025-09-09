@@ -13,7 +13,7 @@
 		Menu,
 		X,
 		LogOut
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 	import { api } from '$lib/api.js';
 	import { goto } from '$app/navigation';
 
@@ -71,7 +71,7 @@
 
 <!-- Mobile menu button -->
 <div class="lg:hidden">
-	<Button variant="ghost" size="icon" on:click={toggleMobileMenu} class="fixed top-4 left-4 z-50">
+	<Button variant="ghost" size="icon" onclick={toggleMobileMenu} class="fixed top-4 left-4 z-50">
 		{#if mobileMenuOpen}
 			<X class="h-6 w-6" />
 		{:else}
@@ -85,7 +85,7 @@
 	<!-- Mobile menu overlay -->
 	{#if mobileMenuOpen}
 		<div class="fixed inset-0 z-40 lg:hidden">
-			<div class="fixed inset-0 bg-gray-600 bg-opacity-75" on:click={closeMobileMenu}></div>
+			<div class="fixed inset-0 bg-gray-600 bg-opacity-75" onclick={closeMobileMenu} role="button" tabindex="0" onkeydown={(e) => e.key === 'Escape' && closeMobileMenu()}></div>
 		</div>
 	{/if}
 
@@ -103,7 +103,7 @@
 					{@const isActive = currentPath === item.href || currentPath.startsWith(item.href + '/')}
 					<a
 						href={item.href}
-						on:click={closeMobileMenu}
+						onclick={closeMobileMenu}
 						class="group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors {
 							isActive
 								? 'bg-blue-50 border-r-2 border-blue-500 text-blue-700'
@@ -143,7 +143,7 @@
 					<Button
 						variant="ghost"
 						size="sm"
-						on:click={handleLogout}
+						onclick={handleLogout}
 						disabled={loading}
 						class="w-full justify-start mt-2"
 					>

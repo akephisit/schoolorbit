@@ -3,6 +3,7 @@ use uuid::Uuid;
 use chrono::{DateTime, Utc, Duration};
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use argon2::password_hash::{rand_core::OsRng, SaltString};
+use ipnetwork::IpNetwork;
 use crate::util::crypto::generate_secure_token;
 
 #[derive(Debug, sqlx::FromRow)]
@@ -11,7 +12,7 @@ pub struct AuthSession {
     pub user_id: Uuid,
     pub refresh_hash: String,
     pub user_agent: Option<String>,
-    pub ip: Option<String>,
+    pub ip: Option<IpNetwork>,
     pub created_at: DateTime<Utc>,
     pub rotated_at: Option<DateTime<Utc>>,
     pub expires_at: DateTime<Utc>,
@@ -31,7 +32,7 @@ impl RefreshService {
         &self,
         user_id: Uuid,
         user_agent: Option<String>,
-        ip: Option<String>,
+        ip: Option<IpNetwork>,
     ) -> anyhow::Result<(Uuid, String)> {
         let session_id = Uuid::new_v4();
         let refresh_token = generate_secure_token();
@@ -54,7 +55,7 @@ impl RefreshService {
             user_id,
             refresh_hash,
             user_agent,
-            ip.as_deref(),
+            ip,
             expires_at
         )
         .execute(&self.pool)

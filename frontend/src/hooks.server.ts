@@ -10,17 +10,19 @@ export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.schoolId = tenant.schoolId;
 	
 	// Try to get current user
-	let me = null;
+	let me: App.Locals['me'] = null;
 	
 	try {
 		// First try to get user info
-		me = await api.get('/auth/me');
+		const userData = await api.get('/auth/me');
+		me = userData as App.Locals['me'];
 	} catch (error) {
 		// If that fails, try to refresh the token
 		try {
 			await api.post('/auth/refresh');
 			// Retry getting user info
-			me = await api.get('/auth/me');
+			const userData = await api.get('/auth/me');
+			me = userData as App.Locals['me'];
 		} catch (refreshError) {
 			// Both failed, user is not authenticated
 			me = null;

@@ -73,11 +73,11 @@
 							id="nationalId"
 							type="text"
 							bind:value={nationalId}
-							on:keypress={handleKeyPress}
+							onkeypress={handleKeyPress}
 							placeholder="กรอกเลขบัตรประชาชน 13 หลัก"
 							required
 							class="mt-1"
-							maxlength="13"
+							maxlength={13}
 						/>
 					</div>
 
@@ -87,7 +87,7 @@
 							id="password"
 							type="password"
 							bind:value={password}
-							on:keypress={handleKeyPress}
+							onkeypress={handleKeyPress}
 							placeholder="กรอกรหัสผ่าน"
 							required
 							class="mt-1"

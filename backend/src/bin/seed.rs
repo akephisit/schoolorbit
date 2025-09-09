@@ -1,4 +1,4 @@
-use sqlx::PgPool;
+use sqlx::{PgPool, Row};
 use uuid::Uuid;
 use argon2::{Argon2, PasswordHasher};
 use argon2::password_hash::{rand_core::OsRng, SaltString};
@@ -50,32 +50,32 @@ async fn seed_meta_database(pool: &PgPool) -> Result<()> {
     let school_id = Uuid::parse_str("00000000-0000-0000-0000-000000000001")?;
     
     // Insert tenant domain mapping
-    sqlx::query!(
+    sqlx::query(
         r#"
         INSERT INTO tenant_domain_map (school_id, domain, is_primary)
         VALUES ($1, $2, $3)
         ON CONFLICT (domain) DO NOTHING
-        "#,
-        school_id,
-        "localhost",
-        true
+        "#
     )
+    .bind(school_id)
+    .bind("localhost")
+    .bind(true)
     .execute(pool)
     .await?;
 
     // Insert tenant database mapping
-    sqlx::query!(
+    sqlx::query(
         r#"
         INSERT INTO tenant_db_map (school_id, dsn, mode, schema_version, status)
         VALUES ($1, $2, $3, $4, $5)
         ON CONFLICT (school_id) DO NOTHING
-        "#,
-        school_id,
-        "postgres://localhost:5432/school_demo",
-        "per_db",
-        1,
-        "active"
+        "#
     )
+    .bind(school_id)
+    .bind("postgres://localhost:5432/school_demo")
+    .bind("per_db")
+    .bind(1)
+    .bind("active")
     .execute(pool)
     .await?;
 
@@ -97,16 +97,16 @@ async fn seed_tenant_database(pool: &PgPool, config: &Config) -> Result<()> {
     ];
 
     for (code, description) in &permissions {
-        sqlx::query!(
+        sqlx::query(
             r#"
             INSERT INTO permission (id, code, description)
             VALUES ($1, $2, $3)
             ON CONFLICT (code) DO NOTHING
-            "#,
-            Uuid::new_v4(),
-            code,
-            description
+            "#
         )
+        .bind(Uuid::new_v4())
+        .bind(code)
+        .bind(description)
         .execute(pool)
         .await?;
     }
@@ -124,16 +124,16 @@ async fn seed_tenant_database(pool: &PgPool, config: &Config) -> Result<()> {
         let role_id = Uuid::new_v4();
         role_ids.insert(*code, role_id);
         
-        sqlx::query!(
+        sqlx::query(
             r#"
             INSERT INTO role (id, code, name)
             VALUES ($1, $2, $3)
             ON CONFLICT (code) DO NOTHING
-            "#,
-            role_id,
-            code,
-            name
+            "#
         )
+        .bind(role_id)
+        .bind(code)
+        .bind(name)
         .execute(pool)
         .await?;
     }
@@ -150,23 +150,21 @@ async fn seed_tenant_database(pool: &PgPool, config: &Config) -> Result<()> {
         let role_id = role_ids.get(role_code).unwrap();
         
         for perm_code in perms {
-            let perm_id = sqlx::query!(
-                "SELECT id FROM permission WHERE code = $1",
-                perm_code
-            )
-            .fetch_one(pool)
-            .await?
-            .id;
+            let perm_row = sqlx::query("SELECT id FROM permission WHERE code = $1")
+                .bind(perm_code)
+                .fetch_one(pool)
+                .await?;
+            let perm_id: Uuid = perm_row.get("id");
 
-            sqlx::query!(
+            sqlx::query(
                 r#"
                 INSERT INTO role_permission (role_id, permission_id)
                 VALUES ($1, $2)
                 ON CONFLICT DO NOTHING
-                "#,
-                role_id,
-                perm_id
+                "#
             )
+            .bind(role_id)
+            .bind(perm_id)
             .execute(pool)
             .await?;
         }
@@ -177,50 +175,50 @@ async fn seed_tenant_database(pool: &PgPool, config: &Config) -> Result<()> {
 
     // Admin user
     let admin_id = Uuid::new_v4();
-    sqlx::query!(
+    sqlx::query(
         r#"
         INSERT INTO app_user (id, email, password_hash, display_name, status)
         VALUES ($1, $2, $3, $4, $5)
         ON CONFLICT (email) DO NOTHING
-        "#,
-        admin_id,
-        "admin@demo",
-        password_hash,
-        "System Administrator",
-        "active"
+        "#
     )
+    .bind(admin_id)
+    .bind("admin@demo")
+    .bind(&password_hash)
+    .bind("System Administrator")
+    .bind("active")
     .execute(pool)
     .await?;
 
     // Assign admin role
     if let Some(role_id) = role_ids.get("admin") {
-        sqlx::query!(
+        sqlx::query(
             r#"
             INSERT INTO user_role (user_id, role_id)
             VALUES ($1, $2)
             ON CONFLICT DO NOTHING
-            "#,
-            admin_id,
-            role_id
+            "#
         )
+        .bind(admin_id)
+        .bind(role_id)
         .execute(pool)
         .await?;
     }
 
     // Teacher user
     let teacher_id = Uuid::new_v4();
-    sqlx::query!(
+    sqlx::query(
         r#"
         INSERT INTO app_user (id, email, password_hash, display_name, status)
         VALUES ($1, $2, $3, $4, $5)
         ON CONFLICT (email) DO NOTHING
-        "#,
-        teacher_id,
-        "teacher@demo",
-        password_hash,
-        "Demo Teacher",
-        "active"
+        "#
     )
+    .bind(teacher_id)
+    .bind("teacher@demo")
+    .bind(&password_hash)
+    .bind("Demo Teacher")
+    .bind("active")
     .execute(pool)
     .await?;
 
@@ -229,97 +227,97 @@ async fn seed_tenant_database(pool: &PgPool, config: &Config) -> Result<()> {
     let teacher_national_id_hash = hash_national_id(teacher_national_id, "demo_salt");
     let teacher_national_id_enc = encrypt_national_id(teacher_national_id, &config.aes_key)?;
 
-    sqlx::query!(
+    sqlx::query(
         r#"
         INSERT INTO personnel_profile (user_id, national_id_hash, national_id_enc, personnel_no, position_title, is_teacher)
         VALUES ($1, $2, $3, $4, $5, $6)
         ON CONFLICT (user_id) DO NOTHING
-        "#,
-        teacher_id,
-        teacher_national_id_hash,
-        teacher_national_id_enc,
-        "T001",
-        "Mathematics Teacher",
-        true
+        "#
     )
+    .bind(teacher_id)
+    .bind(teacher_national_id_hash)
+    .bind(teacher_national_id_enc)
+    .bind("T001")
+    .bind("Mathematics Teacher")
+    .bind(true)
     .execute(pool)
     .await?;
 
     // Assign teacher role
     if let Some(role_id) = role_ids.get("teacher") {
-        sqlx::query!(
+        sqlx::query(
             r#"
             INSERT INTO user_role (user_id, role_id)
             VALUES ($1, $2)
             ON CONFLICT DO NOTHING
-            "#,
-            teacher_id,
-            role_id
+            "#
         )
+        .bind(teacher_id)
+        .bind(role_id)
         .execute(pool)
         .await?;
     }
 
     // Student user
     let student_id = Uuid::new_v4();
-    sqlx::query!(
+    sqlx::query(
         r#"
         INSERT INTO app_user (id, email, password_hash, display_name, status)
         VALUES ($1, $2, $3, $4, $5)
         ON CONFLICT (email) DO NOTHING
-        "#,
-        student_id,
-        "student@demo",
-        password_hash,
-        "Demo Student",
-        "active"
+        "#
     )
+    .bind(student_id)
+    .bind("student@demo")
+    .bind(&password_hash)
+    .bind("Demo Student")
+    .bind("active")
     .execute(pool)
     .await?;
 
     // Create student profile
-    sqlx::query!(
+    sqlx::query(
         r#"
         INSERT INTO student_profile (user_id, student_code, class_id)
         VALUES ($1, $2, $3)
         ON CONFLICT (user_id) DO NOTHING
-        "#,
-        student_id,
-        "STD-650123",
-        Uuid::new_v4() // Mock class ID
+        "#
     )
+    .bind(student_id)
+    .bind("STD-650123")
+    .bind(Uuid::new_v4()) // Mock class ID
     .execute(pool)
     .await?;
 
     // Assign student role
     if let Some(role_id) = role_ids.get("student") {
-        sqlx::query!(
+        sqlx::query(
             r#"
             INSERT INTO user_role (user_id, role_id)
             VALUES ($1, $2)
             ON CONFLICT DO NOTHING
-            "#,
-            student_id,
-            role_id
+            "#
         )
+        .bind(student_id)
+        .bind(role_id)
         .execute(pool)
         .await?;
     }
 
     // Guardian user
     let guardian_id = Uuid::new_v4();
-    sqlx::query!(
+    sqlx::query(
         r#"
         INSERT INTO app_user (id, email, password_hash, display_name, status)
         VALUES ($1, $2, $3, $4, $5)
         ON CONFLICT (email) DO NOTHING
-        "#,
-        guardian_id,
-        "parent@demo",
-        password_hash,
-        "Demo Guardian",
-        "active"
+        "#
     )
+    .bind(guardian_id)
+    .bind("parent@demo")
+    .bind(&password_hash)
+    .bind("Demo Guardian")
+    .bind("active")
     .execute(pool)
     .await?;
 
@@ -328,45 +326,45 @@ async fn seed_tenant_database(pool: &PgPool, config: &Config) -> Result<()> {
     let guardian_national_id_hash = hash_national_id(guardian_national_id, "demo_salt");
     let guardian_national_id_enc = encrypt_national_id(guardian_national_id, &config.aes_key)?;
 
-    sqlx::query!(
+    sqlx::query(
         r#"
         INSERT INTO guardian_profile (user_id, national_id_hash, national_id_enc, phone)
         VALUES ($1, $2, $3, $4)
         ON CONFLICT (user_id) DO NOTHING
-        "#,
-        guardian_id,
-        guardian_national_id_hash,
-        guardian_national_id_enc,
-        "0812345678"
+        "#
     )
+    .bind(guardian_id)
+    .bind(guardian_national_id_hash)
+    .bind(guardian_national_id_enc)
+    .bind("0812345678")
     .execute(pool)
     .await?;
 
     // Link guardian to student
-    sqlx::query!(
+    sqlx::query(
         r#"
         INSERT INTO student_guardian (student_user_id, guardian_user_id, relation)
         VALUES ($1, $2, $3)
         ON CONFLICT DO NOTHING
-        "#,
-        student_id,
-        guardian_id,
-        "parent"
+        "#
     )
+    .bind(student_id)
+    .bind(guardian_id)
+    .bind("parent")
     .execute(pool)
     .await?;
 
     // Assign parent role
     if let Some(role_id) = role_ids.get("parent") {
-        sqlx::query!(
+        sqlx::query(
             r#"
             INSERT INTO user_role (user_id, role_id)
             VALUES ($1, $2)
             ON CONFLICT DO NOTHING
-            "#,
-            guardian_id,
-            role_id
+            "#
         )
+        .bind(guardian_id)
+        .bind(role_id)
         .execute(pool)
         .await?;
     }

@@ -2,6 +2,7 @@
 name = "schoolorbit-backend"
 version = "0.1.0"
 edition = "2021"
+default-run = "server"
 
 [[bin]]
 name = "server"
@@ -11,6 +12,10 @@ path = "src/main.rs"
 name = "seed"
 path = "src/bin/seed.rs"
 
+[[bin]]
+name = "simple-seed"
+path = "src/bin/simple_seed.rs"
+
 [dependencies]
 tokio = { version = "1.0", features = ["full"] }
 axum = { version = "0.7", features = ["tower-log", "multipart"] }
@@ -19,7 +24,7 @@ tower-http = { version = "0.5", features = ["cors", "trace", "request-id"] }
 hyper = { version = "1.0", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "migrate"] }
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "migrate", "ipnetwork"] }
 uuid = { version = "1.0", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 tracing = "0.1"
@@ -36,3 +41,4 @@ base64 = "0.22"
 cookie = "0.18"
 dotenvy = "0.15"
 axum-extra = { version = "0.9", features = ["cookie"] }
+ipnetwork = "0.20"

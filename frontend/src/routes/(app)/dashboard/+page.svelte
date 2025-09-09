@@ -13,7 +13,7 @@
 		TrendingUp,
 		FileText,
 		Bell
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 
 	interface DashboardCard {
 		title: string;

@@ -106,11 +106,11 @@
 								id="nationalId"
 								type="text"
 								bind:value={nationalId}
-								on:keypress={handleKeyPress}
+								onkeypress={handleKeyPress}
 								placeholder="กรอกเลขบัตรประชาชน 13 หลัก"
 								required
 								class="mt-1"
-								maxlength="13"
+								maxlength={13}
 							/>
 						</div>
 
@@ -121,7 +121,7 @@
 									id="password"
 									type="password"
 									bind:value={password}
-									on:keypress={handleKeyPress}
+									onkeypress={handleKeyPress}
 									placeholder="กรอกรหัสผ่าน"
 									required={loginMethod === 'password'}
 									class="mt-1"
@@ -136,11 +136,11 @@
 									id="otp"
 									type="text"
 									bind:value={otp}
-									on:keypress={handleKeyPress}
+									onkeypress={handleKeyPress}
 									placeholder="กรอกรหัส OTP 6 หลัก"
 									required={loginMethod === 'otp'}
 									class="mt-1"
-									maxlength="6"
+									maxlength={6}
 								/>
 								<p class="mt-1 text-sm text-gray-500">
 									รหัส OTP จะถูกส่งไปยังเบอร์โทรศัพท์ที่ลงทะเบียนไว้

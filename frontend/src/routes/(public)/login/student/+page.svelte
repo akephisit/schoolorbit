@@ -73,7 +73,7 @@
 							id="studentCode"
 							type="text"
 							bind:value={studentCode}
-							on:keypress={handleKeyPress}
+							onkeypress={handleKeyPress}
 							placeholder="กรอกรหัสนักเรียน"
 							required
 							class="mt-1"
@@ -86,7 +86,7 @@
 							id="password"
 							type="password"
 							bind:value={password}
-							on:keypress={handleKeyPress}
+							onkeypress={handleKeyPress}
 							placeholder="กรอกรหัสผ่าน"
 							required
 							class="mt-1"

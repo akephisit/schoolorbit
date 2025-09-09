@@ -70,7 +70,7 @@ pub fn create_csrf_cookie(token: &str, config: &CookieConfig) -> HeaderValue {
     HeaderValue::from_str(&cookie_str).unwrap()
 }
 
-pub fn clear_auth_cookies(config: &CookieConfig) -> Vec<HeaderValue> {
+pub fn clear_auth_cookies(_config: &CookieConfig) -> Vec<HeaderValue> {
     let clear_at = Cookie::build(("at", ""))
         .http_only(true)
         .same_site(SameSite::Lax)

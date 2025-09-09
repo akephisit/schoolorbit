@@ -8,7 +8,13 @@ pub async fn run_migrations(pool: &PgPool) -> anyhow::Result<()> {
 
     for (name, sql) in migration_files {
         tracing::info!("Running migration: {}", name);
-        sqlx::query(sql).execute(pool).await?;
+        // Split SQL by semicolon and run each statement separately
+        for statement in sql.split(';') {
+            let statement = statement.trim();
+            if !statement.is_empty() {
+                sqlx::query(statement).execute(pool).await?;
+            }
+        }
     }
 
     Ok(())
@@ -17,6 +23,12 @@ pub async fn run_migrations(pool: &PgPool) -> anyhow::Result<()> {
 pub async fn run_meta_migrations(pool: &PgPool) -> anyhow::Result<()> {
     let sql = include_str!("../../sql/meta_001_tenant_routing.sql");
     tracing::info!("Running meta migration");
-    sqlx::query(sql).execute(pool).await?;
+    // Split SQL by semicolon and run each statement separately
+    for statement in sql.split(';') {
+        let statement = statement.trim();
+        if !statement.is_empty() {
+            sqlx::query(statement).execute(pool).await?;
+        }
+    }
     Ok(())
 }
