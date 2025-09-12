@@ -3,8 +3,9 @@ export interface CookieConfig {
 }
 
 export function createCookieConfig(): CookieConfig {
+	// Secure cookies in production (HTTPS), insecure in development
 	return {
-		secure: false // Always false for single domain development
+		secure: process.env.NODE_ENV === 'production'
 	};
 }
 

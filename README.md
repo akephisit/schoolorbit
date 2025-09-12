@@ -1,38 +1,62 @@
-# sv
+# SchoolOrbit
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+Modern school management system built with SvelteKit and Drizzle ORM.
 
-## Creating a project
+## Tech Stack
 
-If you're seeing this, you've probably already done this step. Congrats!
+- **Frontend**: SvelteKit 5 with TypeScript
+- **Database**: Neon PostgreSQL with Drizzle ORM
+- **Authentication**: JWT with HttpOnly cookies
+- **Deployment**: Vercel Serverless (Singapore region)
+- **UI**: Tailwind CSS with shadcn/ui components
 
-```sh
-# create a new project in the current directory
-npx sv create
+## Environment Setup
 
-# create a new project in my-app
-npx sv create my-app
+Create a `.env` file with:
+
+```env
+DATABASE_URL="your-neon-db-url"
+JWT_SECRET="your-jwt-secret"
+CORS_ALLOWED_ORIGINS="http://localhost:5173"
+PUBLIC_APP_NAME="SchoolOrbit"
 ```
 
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+## Development
 
 ```sh
+# Install dependencies
+npm install
+
+# Generate database schema
+npm run db:generate
+
+# Run migrations
+npm run db:migrate
+
+# Start development server
 npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
 ```
 
-## Building
-
-To create a production version of your app:
+## Database Management
 
 ```sh
-npm run build
+# Generate new migration
+npm run db:generate
+
+# Run migrations
+npm run db:migrate
+
+# Open Drizzle Studio
+npm run db:studio
 ```
 
-You can preview the production build with `npm run preview`.
+## Deployment
 
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+Optimized for Vercel serverless deployment:
+
+```sh
+# Build and deploy
+npm run vercel-build
+```
+
+The project is configured for Singapore region (sin1) with Node.js 20.x runtime for optimal performance in Asia.
