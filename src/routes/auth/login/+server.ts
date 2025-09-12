@@ -1,8 +1,10 @@
 import { json, error } from '@sveltejs/kit';
 import { verify } from 'argon2';
+import { eq, and } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 import { getConfig } from '$lib/server/config';
-import { createPool, queryOne } from '$lib/server/db';
+import { db } from '$lib/server/database';
+import { appUser, personnelProfile, studentProfile, guardianProfile } from '$lib/server/schema';
 import { JwtService } from '$lib/server/jwt';
 import { RefreshService } from '$lib/server/refresh';
 import { hashNationalId, generateSecureToken } from '$lib/server/crypto';
@@ -26,9 +28,8 @@ interface LoginResponse {
 
 export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 	const config = getConfig();
-	const pool = createPool(config.databaseUrl);
 	const jwtService = new JwtService(config.jwtSecret);
-	const refreshService = new RefreshService(pool);
+	const refreshService = new RefreshService();
 
 	let body: LoginRequest;
 	try {
@@ -55,13 +56,13 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 	try {
 		switch (body.actorType) {
 			case 'personnel':
-				userId = await authenticatePersonnel(pool, body.id, body.password);
+				userId = await authenticatePersonnel(body.id, body.password);
 				break;
 			case 'student':
-				userId = await authenticateStudent(pool, body.id, body.password);
+				userId = await authenticateStudent(body.id, body.password);
 				break;
 			case 'guardian':
-				userId = await authenticateGuardian(pool, body.id, body.password);
+				userId = await authenticateGuardian(body.id, body.password);
 				break;
 			default:
 				return error(400, 'Invalid actor type');
@@ -116,32 +117,38 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 	return response;
 };
 
-async function authenticatePersonnel(pool: any, nationalId: string, password?: string): Promise<string> {
+async function authenticatePersonnel(nationalId: string, password?: string): Promise<string> {
 	if (!password) {
 		throw new Error('Password required for personnel');
 	}
 
 	const nationalIdHash = hashNationalId(nationalId);
 	
-	const user = await queryOne<{ id: string; password_hash?: string }>(
-		pool,
-		`SELECT au.id, au.password_hash
-		 FROM app_user au
-		 JOIN personnel_profile pp ON au.id = pp.user_id
-		 WHERE pp.national_id_hash = $1 AND au.status = 'active'`,
-		[nationalIdHash]
-	);
+	const result = await db
+		.select({
+			id: appUser.id,
+			passwordHash: appUser.passwordHash
+		})
+		.from(appUser)
+		.innerJoin(personnelProfile, eq(appUser.id, personnelProfile.userId))
+		.where(and(
+			eq(personnelProfile.nationalIdHash, nationalIdHash),
+			eq(appUser.status, 'active')
+		))
+		.limit(1);
+
+	const user = result[0];
 
 	if (!user) {
 		throw new Error('Invalid credentials');
 	}
 
-	if (!user.password_hash) {
+	if (!user.passwordHash) {
 		throw new Error('Account not configured for password login');
 	}
 
 	try {
-		if (!(await verify(user.password_hash, password))) {
+		if (!(await verify(user.passwordHash, password))) {
 			throw new Error('Invalid credentials');
 		}
 	} catch {
@@ -151,30 +158,36 @@ async function authenticatePersonnel(pool: any, nationalId: string, password?: s
 	return user.id;
 }
 
-async function authenticateStudent(pool: any, studentCode: string, password?: string): Promise<string> {
+async function authenticateStudent(studentCode: string, password?: string): Promise<string> {
 	if (!password) {
 		throw new Error('Password required for student');
 	}
 
-	const user = await queryOne<{ id: string; password_hash?: string }>(
-		pool,
-		`SELECT au.id, au.password_hash
-		 FROM app_user au
-		 JOIN student_profile sp ON au.id = sp.user_id
-		 WHERE sp.student_code = $1 AND au.status = 'active'`,
-		[studentCode]
-	);
+	const result = await db
+		.select({
+			id: appUser.id,
+			passwordHash: appUser.passwordHash
+		})
+		.from(appUser)
+		.innerJoin(studentProfile, eq(appUser.id, studentProfile.userId))
+		.where(and(
+			eq(studentProfile.studentCode, studentCode),
+			eq(appUser.status, 'active')
+		))
+		.limit(1);
+
+	const user = result[0];
 
 	if (!user) {
 		throw new Error('Invalid credentials');
 	}
 
-	if (!user.password_hash) {
+	if (!user.passwordHash) {
 		throw new Error('Account not configured for password login');
 	}
 
 	try {
-		if (!(await verify(user.password_hash, password))) {
+		if (!(await verify(user.passwordHash, password))) {
 			throw new Error('Invalid credentials');
 		}
 	} catch {
@@ -184,32 +197,38 @@ async function authenticateStudent(pool: any, studentCode: string, password?: st
 	return user.id;
 }
 
-async function authenticateGuardian(pool: any, nationalId: string, password?: string): Promise<string> {
+async function authenticateGuardian(nationalId: string, password?: string): Promise<string> {
 	if (!password) {
 		throw new Error('Password required for guardian');
 	}
 
 	const nationalIdHash = hashNationalId(nationalId);
 	
-	const user = await queryOne<{ id: string; password_hash?: string }>(
-		pool,
-		`SELECT au.id, au.password_hash
-		 FROM app_user au
-		 JOIN guardian_profile gp ON au.id = gp.user_id
-		 WHERE gp.national_id_hash = $1 AND au.status = 'active'`,
-		[nationalIdHash]
-	);
+	const result = await db
+		.select({
+			id: appUser.id,
+			passwordHash: appUser.passwordHash
+		})
+		.from(appUser)
+		.innerJoin(guardianProfile, eq(appUser.id, guardianProfile.userId))
+		.where(and(
+			eq(guardianProfile.nationalIdHash, nationalIdHash),
+			eq(appUser.status, 'active')
+		))
+		.limit(1);
+
+	const user = result[0];
 
 	if (!user) {
 		throw new Error('Invalid credentials');
 	}
 
-	if (!user.password_hash) {
+	if (!user.passwordHash) {
 		throw new Error('Account not configured for password login');
 	}
 
 	try {
-		if (!(await verify(user.password_hash, password))) {
+		if (!(await verify(user.passwordHash, password))) {
 			throw new Error('Invalid credentials');
 		}
 	} catch {

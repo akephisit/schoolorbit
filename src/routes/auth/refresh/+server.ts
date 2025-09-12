@@ -1,16 +1,14 @@
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getConfig } from '$lib/server/config';
-import { createPool } from '$lib/server/db';
 import { JwtService } from '$lib/server/jwt';
 import { RefreshService } from '$lib/server/refresh';
 import { createCookieConfig, createAccessTokenCookie, createRefreshTokenCookie } from '$lib/server/cookies';
 
 export const POST: RequestHandler = async ({ cookies }) => {
 	const config = getConfig();
-	const pool = createPool(config.databaseUrl);
 	const jwtService = new JwtService(config.jwtSecret);
-	const refreshService = new RefreshService(pool);
+	const refreshService = new RefreshService();
 
 	const refreshToken = cookies.get('rt');
 	if (!refreshToken) {

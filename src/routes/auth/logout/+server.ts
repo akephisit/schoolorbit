@@ -1,13 +1,11 @@
 import type { RequestHandler } from './$types';
 import { getConfig } from '$lib/server/config';
-import { createPool } from '$lib/server/db';
 import { RefreshService } from '$lib/server/refresh';
 import { createCookieConfig, clearAuthCookies } from '$lib/server/cookies';
 
 export const POST: RequestHandler = async ({ locals }) => {
 	const config = getConfig();
-	const pool = createPool(config.databaseUrl);
-	const refreshService = new RefreshService(pool);
+	const refreshService = new RefreshService();
 
 	// Revoke user sessions if user is authenticated
 	if (locals.me?.data?.user?.id) {

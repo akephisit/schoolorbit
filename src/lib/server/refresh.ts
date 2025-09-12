@@ -1,23 +1,12 @@
-import { Pool } from 'pg';
 import { hash, verify } from 'argon2';
 import { v4 as uuidv4 } from 'uuid';
+import { eq, and, gt, lt, isNull } from 'drizzle-orm';
 import { generateSecureToken } from './crypto.js';
-import { query, queryOne } from './db.js';
-
-export interface AuthSession {
-	id: string;
-	user_id: string;
-	refresh_hash: string;
-	user_agent?: string;
-	ip?: string;
-	created_at: Date;
-	rotated_at?: Date;
-	expires_at: Date;
-	revoked_at?: Date;
-}
+import { db, type Database } from './database.js';
+import { refreshSession } from './schema';
 
 export class RefreshService {
-	constructor(private pool: Pool) {}
+	constructor(private database: Database = db) {}
 
 	async createSession(
 		userId: string,
@@ -30,87 +19,71 @@ export class RefreshService {
 		
 		const refreshHash = await hash(refreshToken);
 
-		await query(
-			this.pool,
-			`INSERT INTO auth_session (id, user_id, refresh_hash, user_agent, ip, expires_at)
-			 VALUES ($1, $2, $3, $4, $5, $6)`,
-			[sessionId, userId, refreshHash, userAgent, ip, expiresAt]
-		);
+		await this.database.insert(refreshSession).values({
+			id: sessionId,
+			userId,
+			tokenHash: refreshHash,
+			userAgent,
+			ipAddress: ip,
+			expiresAt
+		});
 
 		return [sessionId, refreshToken];
 	}
 
 	async verifyAndRotate(refreshToken: string): Promise<[string, string]> {
-		const sessions = await query<AuthSession>(
-			this.pool,
-			`SELECT id, user_id, refresh_hash, user_agent, ip, 
-			        created_at, rotated_at, expires_at, revoked_at
-			 FROM auth_session
-			 WHERE revoked_at IS NULL AND expires_at > NOW()`
-		);
-
-		let matchingSession: AuthSession | null = null;
+		const refreshHash = await hash(refreshToken);
 		
-		for (const session of sessions) {
-			try {
-				if (await verify(session.refresh_hash, refreshToken)) {
-					matchingSession = session;
-					break;
-				}
-			} catch (error) {
-				continue;
-			}
-		}
-
-		if (!matchingSession) {
-			throw new Error('Invalid or expired refresh token');
-		}
-
-		if (matchingSession.rotated_at) {
-			await query(
-				this.pool,
-				'UPDATE auth_session SET revoked_at = NOW() WHERE user_id = $1',
-				[matchingSession.user_id]
+		const sessions = await this.database
+			.select()
+			.from(refreshSession)
+			.where(
+				and(
+					eq(refreshSession.tokenHash, refreshHash),
+					gt(refreshSession.expiresAt, new Date()),
+					isNull(refreshSession.updatedAt) // not rotated
+				)
 			);
-			throw new Error('Token reuse detected - all sessions revoked');
+
+		if (sessions.length === 0) {
+			throw new Error('Invalid refresh token');
 		}
 
+		const session = sessions[0];
+		
+		// Generate new refresh token
 		const newRefreshToken = generateSecureToken();
 		const newRefreshHash = await hash(newRefreshToken);
 
-		await query(
-			this.pool,
-			`UPDATE auth_session 
-			 SET rotated_at = NOW(), refresh_hash = $1
-			 WHERE id = $2`,
-			[newRefreshHash, matchingSession.id]
-		);
+		// Update session with new token and mark as rotated
+		await this.database
+			.update(refreshSession)
+			.set({
+				tokenHash: newRefreshHash,
+				updatedAt: new Date()
+			})
+			.where(eq(refreshSession.id, session.id));
 
-		return [matchingSession.user_id, newRefreshToken];
+		return [session.userId, newRefreshToken];
 	}
 
 	async revokeSession(sessionId: string): Promise<void> {
-		await query(
-			this.pool,
-			'UPDATE auth_session SET revoked_at = NOW() WHERE id = $1',
-			[sessionId]
-		);
+		await this.database
+			.delete(refreshSession)
+			.where(eq(refreshSession.id, sessionId));
 	}
 
 	async revokeUserSessions(userId: string): Promise<void> {
-		await query(
-			this.pool,
-			'UPDATE auth_session SET revoked_at = NOW() WHERE user_id = $1',
-			[userId]
-		);
+		await this.database
+			.delete(refreshSession)
+			.where(eq(refreshSession.userId, userId));
 	}
 
 	async cleanupExpired(): Promise<number> {
-		const result = await query(
-			this.pool,
-			`DELETE FROM auth_session 
-			 WHERE expires_at < NOW() OR revoked_at < NOW() - INTERVAL '7 days'`
-		);
-		return result.length;
+		const result = await this.database
+			.delete(refreshSession)
+			.where(lt(refreshSession.expiresAt, new Date()));
+
+		return result.rowCount || 0;
 	}
 }
