@@ -13,7 +13,7 @@ export const POST: RequestHandler = async ({ locals }) => {
 	}
 
 	// Clear cookies
-	const cookieConfig = createCookieConfig(config.cookieDomain);
+	const cookieConfig = createCookieConfig();
 	const clearCookies = clearAuthCookies(cookieConfig);
 	
 	const response = new Response(null, { status: 204 });

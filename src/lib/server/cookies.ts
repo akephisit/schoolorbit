@@ -1,21 +1,15 @@
 export interface CookieConfig {
-	domain?: string;
 	secure: boolean;
 }
 
-export function createCookieConfig(domain?: string): CookieConfig {
+export function createCookieConfig(): CookieConfig {
 	return {
-		domain,
-		secure: !!domain
+		secure: false // Always false for single domain development
 	};
 }
 
 export function createAccessTokenCookie(token: string, config: CookieConfig): string {
 	let cookie = `at=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${15 * 60}`;
-	
-	if (config.domain) {
-		cookie += `; Domain=${config.domain}`;
-	}
 	
 	if (config.secure) {
 		cookie += '; Secure';
@@ -27,10 +21,6 @@ export function createAccessTokenCookie(token: string, config: CookieConfig): st
 export function createRefreshTokenCookie(token: string, config: CookieConfig): string {
 	let cookie = `rt=${token}; HttpOnly; SameSite=Strict; Path=/auth; Max-Age=${14 * 24 * 60 * 60}`;
 	
-	if (config.domain) {
-		cookie += `; Domain=${config.domain}`;
-	}
-	
 	if (config.secure) {
 		cookie += '; Secure';
 	}
@@ -40,10 +30,6 @@ export function createRefreshTokenCookie(token: string, config: CookieConfig): s
 
 export function createCsrfCookie(token: string, config: CookieConfig): string {
 	let cookie = `csrf=${token}; SameSite=Strict; Path=/; Max-Age=${60 * 60}`;
-	
-	if (config.domain) {
-		cookie += `; Domain=${config.domain}`;
-	}
 	
 	if (config.secure) {
 		cookie += '; Secure';

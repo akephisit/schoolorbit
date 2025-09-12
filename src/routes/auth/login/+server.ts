@@ -94,7 +94,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 	const csrfToken = generateSecureToken();
 
 	// Set cookies
-	const cookieConfig = createCookieConfig(config.cookieDomain);
+	const cookieConfig = createCookieConfig();
 	const cookies = [
 		createAccessTokenCookie(accessToken, cookieConfig),
 		createRefreshTokenCookie(refreshToken, cookieConfig),

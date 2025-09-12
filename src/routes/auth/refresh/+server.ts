@@ -41,7 +41,7 @@ export const POST: RequestHandler = async ({ cookies }) => {
 	const accessToken = jwtService.createToken(claims);
 
 	// Set new cookies
-	const cookieConfig = createCookieConfig(config.cookieDomain);
+	const cookieConfig = createCookieConfig();
 	const cookieHeaders = [
 		createAccessTokenCookie(accessToken, cookieConfig),
 		createRefreshTokenCookie(newRefreshToken, cookieConfig)
