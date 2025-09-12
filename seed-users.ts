@@ -1,6 +1,7 @@
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import { appUser, personnelProfile, studentProfile, guardianProfile } from './src/lib/server/schema/users';
 import { hash } from 'argon2';
+import { hashNationalId } from './src/lib/server/crypto';
 
 // Environment variable for database connection
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -29,7 +30,7 @@ async function seedUsers() {
 
 		await db.insert(personnelProfile).values({
 			userId: personnelUser.id,
-			nationalIdHash: await hash('1234567890123'), // Mock national ID hash
+			nationalIdHash: hashNationalId('1234567890123'), // Mock national ID hash
 			firstName: 'สมชาย',
 			lastName: 'ใจดี',
 			position: 'ครู',
@@ -67,7 +68,7 @@ async function seedUsers() {
 
 		await db.insert(guardianProfile).values({
 			userId: guardianUser.id,
-			nationalIdHash: await hash('9876543210123'), // Mock national ID hash
+			nationalIdHash: hashNationalId('9876543210123'), // Mock national ID hash
 			firstName: 'สมศรี',
 			lastName: 'รักลูก',
 			phoneNumber: '081-234-5678',
@@ -86,7 +87,7 @@ async function seedUsers() {
 
 		await db.insert(personnelProfile).values({
 			userId: adminUser.id,
-			nationalIdHash: await hash('5555555555555'), // Mock national ID hash
+			nationalIdHash: hashNationalId('5555555555555'), // Mock national ID hash
 			firstName: 'ผู้ดูแล',
 			lastName: 'ระบบ',
 			position: 'ผู้ดูแลระบบ',
