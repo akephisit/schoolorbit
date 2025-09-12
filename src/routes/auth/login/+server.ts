@@ -29,9 +29,8 @@ interface LoginResponse {
 export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 	const config = getConfig();
 	console.log('[DEBUG] Login - Environment variables loaded:', {
-		databaseUrl: config.databaseUrl ? 'SET' : 'NOT SET',
-		jwtSecret: config.jwtSecret ? 'SET' : 'NOT SET',
-		corsAllowedOrigins: config.corsAllowedOrigins
+		databaseUrl: config.databaseUrl,
+		jwtSecret: config.jwtSecret
 	});
 	
 	const jwtService = new JwtService(config.jwtSecret);
