@@ -8,6 +8,13 @@
       "when": 1757667213761,
       "tag": "0000_flimsy_jack_power",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1757692255198,
+      "tag": "0001_new_zodiak",
+      "breakpoints": true
     }
   ]
 }

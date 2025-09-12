@@ -2,6 +2,7 @@ import { drizzle } from 'drizzle-orm/neon-serverless';
 import { appUser, personnelProfile, studentProfile, guardianProfile } from './src/lib/server/schema/users';
 import { hash } from 'argon2';
 import { hashNationalId } from './src/lib/server/crypto';
+import { eq } from 'drizzle-orm';
 
 // Environment variable for database connection
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -21,23 +22,27 @@ async function seedUsers() {
 		const testPassword = await hash('12345678');
 
 		// Create test personnel user
-		const [personnelUser] = await db.insert(appUser).values({
-			email: 'teacher@school.test',
-			displayName: 'อาจารย์สมชาย',
-			passwordHash: testPassword,
-			status: 'active'
-		}).returning();
-
-		await db.insert(personnelProfile).values({
-			userId: personnelUser.id,
-			nationalIdHash: hashNationalId('1234567890123'), // Mock national ID hash
-			firstName: 'สมชาย',
-			lastName: 'ใจดี',
-			position: 'ครู',
-			department: 'คณิตศาสตร์'
-		});
-
-		console.log('✅ Personnel user created:', personnelUser.email);
+		let personnelUser = await db.select().from(appUser).where(eq(appUser.email, 'teacher@school.test')).limit(1);
+		if (personnelUser.length === 0) {
+			[personnelUser] = await db.insert(appUser).values({
+				email: 'teacher@school.test',
+				displayName: 'อาจารย์สมชาย',
+				passwordHash: testPassword,
+				status: 'active'
+			}).returning();
+			
+			await db.insert(personnelProfile).values({
+				userId: personnelUser.id,
+				nationalIdHash: hashNationalId('1234567890123'), // Mock national ID hash
+				firstName: 'สมชาย',
+				lastName: 'ใจดี',
+				position: 'ครู',
+				department: 'คณิตศาสตร์'
+			});
+			console.log('✅ Personnel user created:', personnelUser.email);
+		} else {
+			console.log('✅ Personnel user already exists:', personnelUser[0].email);
+		}
 
 		// Create test student user
 		const [studentUser] = await db.insert(appUser).values({

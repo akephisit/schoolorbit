@@ -4,7 +4,7 @@ export const userStatusEnum = pgEnum('user_status', ['active', 'inactive', 'susp
 
 export const appUser = pgTable('app_user', {
 	id: uuid('id').primaryKey().defaultRandom(),
-	email: varchar('email', { length: 255 }),
+	email: varchar('email', { length: 255 }).unique(),
 	displayName: varchar('display_name', { length: 255 }).notNull(),
 	passwordHash: varchar('password_hash', { length: 255 }),
 	status: userStatusEnum('status').notNull().default('active'),
