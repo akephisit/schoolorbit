@@ -1,15 +1,4 @@
 {
-  "buildCommand": "npm run build",
   "framework": "sveltekit",
-  "functions": {
-    "src/routes/**/*.ts": {
-      "runtime": "nodejs20.x",
-      "memory": 512,
-      "maxDuration": 10
-    }
-  },
-  "regions": ["sin1"],
-  "env": {
-    "NODE_ENV": "production"
-  }
+  "regions": ["sin1"]
 }
