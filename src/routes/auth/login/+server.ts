@@ -28,10 +28,6 @@ interface LoginResponse {
 
 export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 	const config = getConfig();
-	console.log('[DEBUG] Login - Environment variables loaded:', {
-		databaseUrl: config.databaseUrl,
-		jwtSecret: config.jwtSecret
-	});
 	
 	const jwtService = new JwtService(config.jwtSecret);
 	const refreshService = new RefreshService();
@@ -39,23 +35,12 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 	let body: LoginRequest;
 	try {
 		body = await request.json();
-		console.log('[DEBUG] Login - Request body:', {
-			actorType: body.actorType,
-			id: body.id ? `${body.id.substring(0, 3)}***` : 'NOT PROVIDED',
-			hasPassword: !!body.password,
-			hasOtp: !!body.otp
-		});
 	} catch {
-		console.log('[DEBUG] Login - Invalid JSON received');
 		return error(400, 'Invalid JSON');
 	}
 
 	// Validate request
 	if (!body.actorType || !body.id) {
-		console.log('[DEBUG] Login - Missing required fields:', {
-			actorType: !!body.actorType,
-			id: !!body.id
-		});
 		return error(400, 'Missing required fields');
 	}
 
@@ -70,8 +55,6 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 	
 	let userId: string;
 	try {
-		console.log('[DEBUG] Login - Starting authentication for actor type:', body.actorType);
-		
 		switch (body.actorType) {
 			case 'personnel':
 				userId = await authenticatePersonnel(body.id, body.password);
@@ -83,13 +66,9 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 				userId = await authenticateGuardian(body.id, body.password);
 				break;
 			default:
-				console.log('[DEBUG] Login - Invalid actor type:', body.actorType);
 				return error(400, 'Invalid actor type');
 		}
-		
-		console.log('[DEBUG] Login - Authentication successful for userId:', userId);
 	} catch (err) {
-		console.log('[DEBUG] Login - Authentication failed:', err instanceof Error ? err.message : 'Unknown error');
 		return error(400, err instanceof Error ? err.message : 'Authentication failed');
 	}
 
@@ -99,7 +78,6 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 	const context = null;
 
 	// Create JWT claims
-	console.log('[DEBUG] Login - Creating JWT claims for userId:', userId);
 	const claims = jwtService.createClaims(
 		userId,
 		roles,
@@ -108,19 +86,15 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 	);
 
 	// Create tokens
-	console.log('[DEBUG] Login - Creating access token');
 	const accessToken = jwtService.createToken(claims);
-	console.log('[DEBUG] Login - Creating refresh token and session');
 	const [_sessionId, refreshToken] = await refreshService.createSession(
 		userId,
 		request.headers.get('user-agent') || undefined,
 		getClientAddress()
 	);
-	console.log('[DEBUG] Login - Generating CSRF token');
 	const csrfToken = generateSecureToken();
 
 	// Set cookies
-	console.log('[DEBUG] Login - Creating cookie configuration');
 	const cookieConfig = createCookieConfig();
 	const cookies = [
 		createAccessTokenCookie(accessToken, cookieConfig),
@@ -128,7 +102,6 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 		createCsrfCookie(csrfToken, cookieConfig)
 	];
 
-	console.log('[DEBUG] Login - Creating response with user data');
 	const response = json({
 		data: {
 			userId,
@@ -138,25 +111,19 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 		}
 	} satisfies LoginResponse);
 
-	console.log('[DEBUG] Login - Setting cookies in response headers');
 	cookies.forEach(cookie => {
 		response.headers.append('set-cookie', cookie);
 	});
 
-	console.log('[DEBUG] Login - Login process completed successfully');
 	return response;
 };
 
 async function authenticatePersonnel(nationalId: string, password?: string): Promise<string> {
-	console.log('[DEBUG] authenticatePersonnel - Starting authentication for personnel');
-	
 	if (!password) {
-		console.log('[DEBUG] authenticatePersonnel - No password provided');
 		throw new Error('Password required for personnel');
 	}
 
 	const nationalIdHash = hashNationalId(nationalId);
-	console.log('[DEBUG] authenticatePersonnel - National ID hash created');
 	
 	const result = await db
 		.select({
@@ -171,32 +138,24 @@ async function authenticatePersonnel(nationalId: string, password?: string): Pro
 		))
 		.limit(1);
 
-	console.log('[DEBUG] authenticatePersonnel - Database query completed, found users:', result.length);
 	const user = result[0];
 
 	if (!user) {
-		console.log('[DEBUG] authenticatePersonnel - No user found with provided credentials');
 		throw new Error('Invalid credentials');
 	}
 
 	if (!user.passwordHash) {
-		console.log('[DEBUG] authenticatePersonnel - User found but no password hash configured');
 		throw new Error('Account not configured for password login');
 	}
 
-	console.log('[DEBUG] authenticatePersonnel - Verifying password hash');
 	try {
 		if (!(await verify(user.passwordHash, password))) {
-			console.log('[DEBUG] authenticatePersonnel - Password verification failed');
 			throw new Error('Invalid credentials');
 		}
-		console.log('[DEBUG] authenticatePersonnel - Password verification successful');
 	} catch {
-		console.log('[DEBUG] authenticatePersonnel - Password verification threw exception');
 		throw new Error('Invalid credentials');
 	}
 
-	console.log('[DEBUG] authenticatePersonnel - Authentication completed successfully');
 	return user.id;
 }
 
