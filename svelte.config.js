@@ -3,7 +3,7 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 
 function getCsrfTrustedOrigins() {
 	const defaults = ['http://localhost:5173'];
-	const corsOrigins = (process.env.CORS_ALLOWED_ORIGINS || '')
+	const corsOrigins = (process.env.CSRF_TRUSTED_ORIGINS || '')
 		.split(',')
 		.map((s) => s.trim())
 		.filter(Boolean);
