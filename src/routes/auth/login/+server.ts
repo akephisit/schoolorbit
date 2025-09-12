@@ -156,22 +156,30 @@ async function authenticatePersonnel(nationalId: string, password?: string): Pro
 	}
 
 	const nationalIdHash = hashNationalId(nationalId);
-	console.log('[DEBUG] authenticatePersonnel - National ID hash created');
+	console.log('[DEBUG] authenticatePersonnel - National ID hash created:', nationalIdHash);
 	
-	const result = await db
-		.select({
-			id: appUser.id,
-			passwordHash: appUser.passwordHash
-		})
-		.from(appUser)
-		.innerJoin(personnelProfile, eq(appUser.id, personnelProfile.userId))
-		.where(and(
-			eq(personnelProfile.nationalIdHash, nationalIdHash),
-			eq(appUser.status, 'active')
-		))
-		.limit(1);
+	let result;
+	try {
+		console.log('[DEBUG] authenticatePersonnel - Executing database query...');
+		result = await db
+			.select({
+				id: appUser.id,
+				passwordHash: appUser.passwordHash
+			})
+			.from(appUser)
+			.innerJoin(personnelProfile, eq(appUser.id, personnelProfile.userId))
+			.where(and(
+				eq(personnelProfile.nationalIdHash, nationalIdHash),
+				eq(appUser.status, 'active')
+			))
+			.limit(1);
 
-	console.log('[DEBUG] authenticatePersonnel - Database query completed, found users:', result.length);
+		console.log('[DEBUG] authenticatePersonnel - Database query completed, found users:', result.length);
+	} catch (dbError) {
+		console.log('[DEBUG] authenticatePersonnel - Database query failed:', dbError);
+		throw new Error(`Database query failed: ${dbError instanceof Error ? dbError.message : 'Unknown database error'}`);
+	}
+	
 	const user = result[0];
 
 	if (!user) {
