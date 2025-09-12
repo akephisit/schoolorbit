@@ -1,6 +1,15 @@
 import adapter from '@sveltejs/adapter-vercel';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 
+function getCsrfTrustedOrigins() {
+	const defaults = ['http://localhost:5173'];
+	const corsOrigins = (process.env.CORS_ALLOWED_ORIGINS || '')
+		.split(',')
+		.map((s) => s.trim())
+		.filter(Boolean);
+	return [...new Set([...defaults, ...corsOrigins])];
+}
+
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
 	// Consult https://svelte.dev/docs/kit/integrations
@@ -16,6 +25,9 @@ const config = {
 			runtime: 'nodejs20.x',
 			memory: 512
 		}),
+		csrf: {
+			trustedOrigins: getCsrfTrustedOrigins()
+		}
 	}
 };
 
