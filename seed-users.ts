@@ -1,7 +1,7 @@
 import { drizzle } from 'drizzle-orm/neon-serverless';
-import { appUser, personnelProfile, studentProfile, guardianProfile } from './src/lib/server/schema/users';
+import { appUser, personnelProfile, studentProfile, guardianProfile } from './src/lib/server/schema/users.js';
 import { hash } from 'argon2';
-import { hashNationalId } from './src/lib/server/crypto';
+import { hashNationalId } from './src/lib/server/crypto.js';
 import { eq } from 'drizzle-orm';
 
 // Environment variable for database connection
@@ -22,8 +22,10 @@ async function seedUsers() {
 		const testPassword = await hash('12345678');
 
 		// Create test personnel user
-		let personnelUser = await db.select().from(appUser).where(eq(appUser.email, 'teacher@school.test')).limit(1);
-		if (personnelUser.length === 0) {
+		let personnelUserArray = await db.select().from(appUser).where(eq(appUser.email, 'teacher@school.test')).limit(1);
+		let personnelUser;
+		
+		if (personnelUserArray.length === 0) {
 			[personnelUser] = await db.insert(appUser).values({
 				email: 'teacher@school.test',
 				displayName: 'อาจารย์สมชาย',
@@ -41,7 +43,8 @@ async function seedUsers() {
 			});
 			console.log('✅ Personnel user created:', personnelUser.email);
 		} else {
-			console.log('✅ Personnel user already exists:', personnelUser[0].email);
+			personnelUser = personnelUserArray[0];
+			console.log('✅ Personnel user already exists:', personnelUser.email);
 		}
 
 		// Create test student user
@@ -103,10 +106,10 @@ async function seedUsers() {
 
 		console.log('\n🎉 All test users created successfully!');
 		console.log('\nTest credentials:');
-		console.log('Email: teacher@school.test | Password: password123');
-		console.log('Email: student@school.test | Password: password123');
-		console.log('Email: parent@school.test | Password: password123');
-		console.log('Email: admin@school.test | Password: password123');
+		console.log('Email: teacher@school.test | Password: 12345678');
+		console.log('Email: student@school.test | Password: 12345678');
+		console.log('Email: parent@school.test | Password: 12345678');
+		console.log('Email: admin@school.test | Password: 12345678');
 
 	} catch (error) {
 		console.error('❌ Error seeding users:', error);
