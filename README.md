@@ -53,7 +53,14 @@ npm run db:migrate
 
 # Open Drizzle Studio
 npm run db:studio
+
+# Alternative: sync schema without migration files
+# (applies current schema directly to the DB)
+npm run db:push
 ```
+
+- Use `npm run db:push` if you prefer not to manage numbered migration files.
+- For production environments, migrations (`db:migrate`) are recommended for auditability.
 
 - Run migrations against a specific database by prefixing the command:
   - `DATABASE_URL='postgres://...' npm run db:migrate`
