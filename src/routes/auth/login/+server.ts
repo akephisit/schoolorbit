@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import { verify } from 'argon2';
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and, sql, inArray } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 import { getConfig } from '$lib/server/config';
 import { db } from '$lib/server/database';
@@ -41,35 +41,43 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 
 	// Validate request
 	if (!body.actorType || !body.id) {
-		return error(400, 'Missing required fields');
+		return error(400, 'กรุณากรอกข้อมูลให้ครบถ้วน');
 	}
 
-	if (body.password === '') {
-		return error(400, 'Password cannot be empty');
+	// Normalize inputs
+	const actorType = body.actorType.trim();
+	let rawId = body.id.trim();
+	let password = body.password?.toString();
+	const otp = body.otp?.toString();
+
+	if (password !== undefined && password.trim() === '') {
+		return error(400, 'กรุณากรอกรหัสผ่าน');
 	}
 
-	if (!body.password && !body.otp) {
-		return error(400, 'Either password or OTP is required');
+	if (!password && otp) {
+		// OTP flow not implemented yet
+		return error(400, 'ขออภัย ระบบยังไม่รองรับการเข้าสู่ระบบด้วย OTP');
 	}
 
 	
 	let userId: string;
 	try {
-		switch (body.actorType) {
+		switch (actorType) {
 			case 'personnel':
-				userId = await authenticatePersonnel(body.id, body.password);
+				userId = await authenticatePersonnel(rawId, password);
 				break;
 			case 'student':
-				userId = await authenticateStudent(body.id, body.password);
+				userId = await authenticateStudent(rawId, password);
 				break;
 			case 'guardian':
-				userId = await authenticateGuardian(body.id, body.password);
+				userId = await authenticateGuardian(rawId, password);
 				break;
 			default:
-				return error(400, 'Invalid actor type');
+				return error(400, 'ประเภทผู้ใช้ไม่ถูกต้อง');
 		}
-	} catch {
-		return error(400, 'Invalid credentials');
+	} catch (e) {
+		const msg = e instanceof Error ? e.message : 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ';
+		return error(400, msg);
 	}
 
 	// TODO: Get user permissions from RBAC service
@@ -118,12 +126,20 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 };
 
 async function authenticatePersonnel(nationalId: string, password?: string): Promise<string> {
+	// Input format: 13 digits
+	const digits = nationalId.replace(/\D/g, '');
+	if (digits.length !== 13) {
+		throw new Error('เลขบัตรประชาชนไม่ถูกต้อง');
+	}
 	if (!password) {
-		throw new Error('Password required for personnel');
+		throw new Error('กรุณากรอกรหัสผ่าน');
 	}
 
-	const nationalIdHash = hashNationalId(nationalId);
-	
+	// Support both env salt and legacy default salt to bridge deployments
+	const hashPrimary = hashNationalId(digits);
+	const hashLegacy = hashNationalId(digits, 'default_salt');
+	const hashes = hashPrimary === hashLegacy ? [hashPrimary] : [hashPrimary, hashLegacy];
+
 	let result;
 	try {
 		result = await db
@@ -133,39 +149,49 @@ async function authenticatePersonnel(nationalId: string, password?: string): Pro
 			})
 			.from(appUser)
 			.innerJoin(personnelProfile, eq(appUser.id, personnelProfile.userId))
-				.where(and(
-					eq(personnelProfile.nationalIdHash, nationalIdHash),
-					// Cast column to text for cross-env compatibility (enum/text)
-					sql`${appUser.status}::text = ${'active'}`
-				))
+			.where(and(
+				inArray(personnelProfile.nationalIdHash, hashes),
+				// Cross-env: enum/text
+				sql`${appUser.status}::text = ${'active'}`
+			))
 			.limit(1);
-	} catch (dbError) {
-		throw new Error('Authentication failed');
+	} catch {
+		throw new Error('เกิดข้อผิดพลาดในการยืนยันตัวตน');
 	}
-	
-	const user = result[0];
 
+	let user = result[0];
 	if (!user) {
-		throw new Error('Invalid credentials');
+		// If not found as active, check if exists but inactive
+		const probe = await db
+			.select({ status: appUser.status })
+			.from(appUser)
+			.innerJoin(personnelProfile, eq(appUser.id, personnelProfile.userId))
+			.where(inArray(personnelProfile.nationalIdHash, hashes))
+			.limit(1);
+		if (probe.length && String((probe[0] as any).status) !== 'active') {
+			throw new Error('บัญชีถูกระงับหรือไม่พร้อมใช้งาน');
+		}
+		throw new Error('เลขบัตรหรือรหัสผ่านไม่ถูกต้อง');
 	}
 
 	if (!user.passwordHash) {
-		throw new Error('Account not configured for password login');
+		throw new Error('บัญชีนี้ยังไม่ได้ตั้งค่ารหัสผ่าน');
 	}
 	try {
 		if (!(await verify(user.passwordHash, password))) {
-			throw new Error('Invalid credentials');
+			throw new Error('เลขบัตรหรือรหัสผ่านไม่ถูกต้อง');
 		}
 	} catch {
-		throw new Error('Invalid credentials');
+		throw new Error('เลขบัตรหรือรหัสผ่านไม่ถูกต้อง');
 	}
 	return user.id;
 }
 
 async function authenticateStudent(studentCode: string, password?: string): Promise<string> {
 	if (!password) {
-		throw new Error('Password required for student');
+		throw new Error('กรุณากรอกรหัสผ่าน');
 	}
+	const code = studentCode.trim();
 
 	const result = await db
 		.select({
@@ -174,40 +200,55 @@ async function authenticateStudent(studentCode: string, password?: string): Prom
 		})
 		.from(appUser)
 		.innerJoin(studentProfile, eq(appUser.id, studentProfile.userId))
-			.where(and(
-				eq(studentProfile.studentCode, studentCode),
-				// Cast column to text for cross-env compatibility (enum/text)
-				sql`${appUser.status}::text = ${'active'}`
-			))
+		.where(and(
+			eq(studentProfile.studentCode, code),
+			sql`${appUser.status}::text = ${'active'}`
+		))
 		.limit(1);
 
 	const user = result[0];
 
 	if (!user) {
-		throw new Error('Invalid credentials');
+		// Probe inactive
+		const probe = await db
+			.select({ status: appUser.status })
+			.from(appUser)
+			.innerJoin(studentProfile, eq(appUser.id, studentProfile.userId))
+			.where(eq(studentProfile.studentCode, code))
+			.limit(1);
+		if (probe.length && String((probe[0] as any).status) !== 'active') {
+			throw new Error('บัญชีถูกระงับหรือไม่พร้อมใช้งาน');
+		}
+		throw new Error('รหัสนักเรียนหรือรหัสผ่านไม่ถูกต้อง');
 	}
 
 	if (!user.passwordHash) {
-		throw new Error('Account not configured for password login');
+		throw new Error('บัญชีนี้ยังไม่ได้ตั้งค่ารหัสผ่าน');
 	}
 
 	try {
 		if (!(await verify(user.passwordHash, password))) {
-			throw new Error('Invalid credentials');
+			throw new Error('รหัสนักเรียนหรือรหัสผ่านไม่ถูกต้อง');
 		}
 	} catch {
-		throw new Error('Invalid credentials');
+		throw new Error('รหัสนักเรียนหรือรหัสผ่านไม่ถูกต้อง');
 	}
 
 	return user.id;
 }
 
 async function authenticateGuardian(nationalId: string, password?: string): Promise<string> {
+	const digits = nationalId.replace(/\D/g, '');
+	if (digits.length !== 13) {
+		throw new Error('เลขบัตรประชาชนไม่ถูกต้อง');
+	}
 	if (!password) {
-		throw new Error('Password required for guardian');
+		throw new Error('กรุณากรอกรหัสผ่าน');
 	}
 
-	const nationalIdHash = hashNationalId(nationalId);
+	const hashPrimary = hashNationalId(digits);
+	const hashLegacy = hashNationalId(digits, 'default_salt');
+	const hashes = hashPrimary === hashLegacy ? [hashPrimary] : [hashPrimary, hashLegacy];
 	
 	const result = await db
 		.select({
@@ -216,29 +257,37 @@ async function authenticateGuardian(nationalId: string, password?: string): Prom
 		})
 		.from(appUser)
 		.innerJoin(guardianProfile, eq(appUser.id, guardianProfile.userId))
-			.where(and(
-				eq(guardianProfile.nationalIdHash, nationalIdHash),
-				// Cast column to text for cross-env compatibility (enum/text)
-				sql`${appUser.status}::text = ${'active'}`
-			))
+		.where(and(
+			inArray(guardianProfile.nationalIdHash, hashes),
+			sql`${appUser.status}::text = ${'active'}`
+		))
 		.limit(1);
 
 	const user = result[0];
 
 	if (!user) {
-		throw new Error('Invalid credentials');
+		const probe = await db
+			.select({ status: appUser.status })
+			.from(appUser)
+			.innerJoin(guardianProfile, eq(appUser.id, guardianProfile.userId))
+			.where(inArray(guardianProfile.nationalIdHash, hashes))
+			.limit(1);
+		if (probe.length && String((probe[0] as any).status) !== 'active') {
+			throw new Error('บัญชีถูกระงับหรือไม่พร้อมใช้งาน');
+		}
+		throw new Error('เลขบัตรหรือรหัสผ่านไม่ถูกต้อง');
 	}
 
 	if (!user.passwordHash) {
-		throw new Error('Account not configured for password login');
+		throw new Error('บัญชีนี้ยังไม่ได้ตั้งค่ารหัสผ่าน');
 	}
 
 	try {
 		if (!(await verify(user.passwordHash, password))) {
-			throw new Error('Invalid credentials');
+			throw new Error('เลขบัตรหรือรหัสผ่านไม่ถูกต้อง');
 		}
 	} catch {
-		throw new Error('Invalid credentials');
+		throw new Error('เลขบัตรหรือรหัสผ่านไม่ถูกต้อง');
 	}
 
 	return user.id;
