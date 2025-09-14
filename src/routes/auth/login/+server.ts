@@ -4,7 +4,7 @@ import { eq, and, sql } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 import { getConfig } from '$lib/server/config';
 import { db } from '$lib/server/database';
-import { appUser, personnelProfile, studentProfile, guardianProfile } from '$lib/server/schema';
+import { appUser, personnelProfile, studentProfile, guardianProfile, role, userRole, rolePermission, permission } from '$lib/server/schema';
 import { JwtService } from '$lib/server/jwt';
 import { RefreshService } from '$lib/server/refresh';
 import { hashNationalId, generateSecureToken } from '$lib/server/crypto';
@@ -80,10 +80,9 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 		return error(400, msg);
 	}
 
-	// TODO: Get user permissions from RBAC service
-	const roles: string[] = [];
-	const permissions: string[] = [];
-	const context = null;
+    // Load roles and permissions via RBAC tables
+    const { roles, permissions } = await getUserRolesAndPerms(userId);
+    const context = null;
 
 	// Create JWT claims
 	const claims = jwtService.createClaims(
@@ -124,6 +123,30 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 	});
 	return response;
 };
+
+async function getUserRolesAndPerms(userId: string): Promise<{ roles: string[]; permissions: string[] }> {
+    // roles
+    const roleRows = await db
+        .select({ code: role.code })
+        .from(userRole)
+        .innerJoin(role, eq(userRole.roleId, role.id))
+        .where(eq(userRole.userId, userId));
+    const roles = Array.from(new Set(roleRows.map(r => r.code)));
+
+    if (roles.length === 0) {
+        return { roles, permissions: [] };
+    }
+    // permissions via role -> role_permission -> permission
+    const permRows = await db
+        .select({ code: permission.code })
+        .from(userRole)
+        .innerJoin(role, eq(userRole.roleId, role.id))
+        .innerJoin(rolePermission, eq(role.id, rolePermission.roleId))
+        .innerJoin(permission, eq(rolePermission.permissionId, permission.id))
+        .where(eq(userRole.userId, userId));
+    const permissions = Array.from(new Set(permRows.map(p => p.code)));
+    return { roles, permissions };
+}
 
 async function authenticatePersonnel(nationalId: string, password?: string): Promise<string> {
 	// Input format: 13 digits

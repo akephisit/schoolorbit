@@ -159,6 +159,103 @@ async function main() {
   });
   console.log(`✅ Admin ready: ${admin.email}`);
 
+  // ---- RBAC ----
+  console.log('\nSeeding RBAC (roles, permissions, mappings)...');
+
+  // helper lookups/creations
+  async function getRoleId(code, name) {
+    const found = await sql`SELECT id FROM role WHERE code = ${code} LIMIT 1`;
+    if (found.length) return found[0].id;
+    const ins = await sql`INSERT INTO role (code, name) VALUES (${code}, ${name}) RETURNING id`;
+    return ins[0].id;
+  }
+  async function getPermId(code, name) {
+    const found = await sql`SELECT id FROM permission WHERE code = ${code} LIMIT 1`;
+    if (found.length) return found[0].id;
+    const ins = await sql`INSERT INTO permission (code, name) VALUES (${code}, ${name}) RETURNING id`;
+    return ins[0].id;
+  }
+  async function ensureRolePerm(roleId, permId) {
+    const exists = await sql`SELECT 1 FROM role_permission WHERE role_id = ${roleId} AND permission_id = ${permId} LIMIT 1`;
+    if (!exists.length) {
+      await sql`INSERT INTO role_permission (role_id, permission_id) VALUES (${roleId}, ${permId})`;
+    }
+  }
+  async function ensureUserRole(userId, roleId) {
+    const exists = await sql`SELECT 1 FROM user_role WHERE user_id = ${userId} AND role_id = ${roleId} LIMIT 1`;
+    if (!exists.length) {
+      await sql`INSERT INTO user_role (user_id, role_id) VALUES (${userId}, ${roleId})`;
+    }
+  }
+
+  // Define roles and permissions
+  const roleDefs = [
+    ['admin', 'Administrator'],
+    ['teacher', 'Teacher'],
+    ['student', 'Student'],
+    ['guardian', 'Guardian']
+  ];
+  const permDefs = [
+    ['class:read', 'Read Classes'],
+    ['attend:read', 'Read Attendance'],
+    ['attend:write', 'Write Attendance'],
+    ['grade:read', 'Read Grades'],
+    ['user:manage', 'Manage Users']
+  ];
+
+  const roleIds = {};
+  for (const [code, name] of roleDefs) {
+    roleIds[code] = await getRoleId(code, name);
+  }
+  const permIds = {};
+  for (const [code, name] of permDefs) {
+    permIds[code] = await getPermId(code, name);
+  }
+
+  // Map role -> permissions
+  const grants = {
+    admin: permDefs.map(([c]) => c),
+    teacher: ['class:read', 'attend:read', 'attend:write', 'grade:read'],
+    student: ['class:read', 'grade:read'],
+    guardian: ['class:read', 'grade:read']
+  };
+  for (const [rCode, perms] of Object.entries(grants)) {
+    for (const pCode of perms) {
+      await ensureRolePerm(roleIds[rCode], permIds[pCode]);
+    }
+  }
+
+  // Assign roles to users
+  await ensureUserRole(teacher.id, roleIds.teacher);
+  await ensureUserRole(student.id, roleIds.student);
+  await ensureUserRole(guardian.id, roleIds.guardian);
+  await ensureUserRole(admin.id, roleIds.admin);
+  console.log('✅ RBAC seeded');
+
+  // ---- Menu items ----
+  console.log('Seeding menu items...');
+  const countRes = await sql`SELECT COUNT(*)::int AS c FROM menu_item`;
+  const count = countRes[0]?.c ?? 0;
+  if (count === 0) {
+    const items = [
+      { label: 'Dashboard', href: '/dashboard', icon: 'home', requires: null, sort: 0 },
+      { label: 'Classes', href: '/classes', icon: 'book', requires: ['class:read'], sort: 10 },
+      { label: 'Attendance', href: '/attendance', icon: 'calendar', requires: ['attend:read'], sort: 20 },
+      { label: 'Record Attendance', href: '/attendance/mark', icon: 'check', requires: ['attend:write'], sort: 30 },
+      { label: 'Grades', href: '/grades', icon: 'award', requires: ['grade:read'], sort: 40 },
+      { label: 'Users', href: '/users', icon: 'users', requires: ['user:manage'], sort: 50 }
+    ];
+    for (const it of items) {
+      await sql`
+        INSERT INTO menu_item (label, href, icon, required_permissions, sort_order, is_active)
+        VALUES (${it.label}, ${it.href}, ${it.icon}, ${it.requires ? JSON.stringify(it.requires) : null}, ${it.sort}, true)
+      `;
+    }
+    console.log('✅ Menu items created');
+  } else {
+    console.log('ℹ️ Menu already has items; skipped');
+  }
+
   console.log('\n🎉 Done! Test accounts use password: 12345678');
 }
 

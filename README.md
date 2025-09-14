@@ -80,6 +80,13 @@ Default credentials (all use the same password `12345678`):
 - Note: Personnel/Guardian login uses national ID (13 digits), Student uses student code.
 - Ensure `NATIONAL_ID_SALT` matches the one used during seeding; otherwise ID lookups won’t match.
 
+## RBAC & Menu
+
+- Roles/Permissions schema is included (`role`, `permission`, `role_permission`, `user_role`).
+- Login/Refresh now load roles and permissions from the database and embed them in JWT.
+- The `/menu` endpoint reads active items from `menu_item` and filters by `required_permissions` against the user’s perms.
+- Seeding script creates default roles (admin, teacher, student, guardian), permissions, their mappings, assigns roles to the test users, and seeds menu items when empty.
+
 ## Auth Notes
 
 - Access/Refresh cookies: `at` (HttpOnly, 15m) and `rt` (HttpOnly, 14d).
@@ -91,6 +98,12 @@ Default credentials (all use the same password `12345678`):
 - Uses Neon HTTP driver with connection caching (no WebSockets) for Vercel serverless.
 - Required ENV in production: `DATABASE_URL`, `JWT_SECRET`, `NATIONAL_ID_SALT`.
 - If you see auth query errors in logs, verify ENV values and that migrations ran on the right database.
+
+## Migrations
+
+- After changing schema files, generate and run migrations:
+  - `npm run db:generate`
+  - `npm run db:migrate`
 
 ## Housekeeping
 

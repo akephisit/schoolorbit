@@ -4,6 +4,9 @@ import { getConfig } from '$lib/server/config';
 import { JwtService } from '$lib/server/jwt';
 import { RefreshService } from '$lib/server/refresh';
 import { createCookieConfig, createAccessTokenCookie, createRefreshTokenCookie } from '$lib/server/cookies';
+import { db } from '$lib/server/database';
+import { role, userRole, rolePermission, permission } from '$lib/server/schema';
+import { eq } from 'drizzle-orm';
 
 export const POST: RequestHandler = async ({ cookies }) => {
 	const config = getConfig();
@@ -24,10 +27,24 @@ export const POST: RequestHandler = async ({ cookies }) => {
 		return error(401, 'Unauthorized');
 	}
 
-	// TODO: Get updated user permissions from RBAC service
-	const roles: string[] = [];
-	const permissions: string[] = [];
-	const context = null;
+    // Load fresh roles and permissions
+    const roleRows = await db
+        .select({ code: role.code })
+        .from(userRole)
+        .innerJoin(role, eq(userRole.roleId, role.id))
+        .where(eq(userRole.userId, userId));
+    const roles = Array.from(new Set(roleRows.map(r => r.code)));
+
+    const permRows = await db
+        .select({ code: permission.code })
+        .from(userRole)
+        .innerJoin(role, eq(userRole.roleId, role.id))
+        .innerJoin(rolePermission, eq(role.id, rolePermission.roleId))
+        .innerJoin(permission, eq(rolePermission.permissionId, permission.id))
+        .where(eq(userRole.userId, userId));
+    const permissions = Array.from(new Set(permRows.map(p => p.code)));
+
+    const context = null;
 
 
 	// Create new JWT

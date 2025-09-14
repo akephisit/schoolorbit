@@ -15,6 +15,13 @@
       "when": 1757692255198,
       "tag": "0001_new_zodiak",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1757863259330,
+      "tag": "0002_absent_mephisto",
+      "breakpoints": true
     }
   ]
 }

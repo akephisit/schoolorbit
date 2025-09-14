@@ -1,75 +1,42 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { db } from '$lib/server/database';
+import { menuItem } from '$lib/server/schema';
+import { eq, asc } from 'drizzle-orm';
 
-interface MenuItem {
-	label: string;
-	href: string;
-	icon: string;
-	requires?: string[];
+interface MenuItemOut {
+  label: string;
+  href: string;
+  icon: string;
 }
 
 interface MenuResponse {
-	data: MenuItem[];
+  data: MenuItemOut[];
 }
 
 export const GET: RequestHandler = async ({ locals }) => {
-	// Check if user is authenticated
-	if (!locals.me?.data?.user?.id) {
-		return error(401, 'Unauthorized');
-	}
+  if (!locals.me?.data?.user?.id) {
+    return error(401, 'Unauthorized');
+  }
 
-	const menuItems: MenuItem[] = [
-		{
-			label: 'Dashboard',
-			href: '/dashboard',
-			icon: 'home'
-			// No requirements - accessible to all authenticated users
-		},
-		{
-			label: 'Classes',
-			href: '/classes',
-			icon: 'book',
-			requires: ['class:read']
-		},
-		{
-			label: 'Attendance',
-			href: '/attendance',
-			icon: 'calendar',
-			requires: ['attend:read']
-		},
-		{
-			label: 'Record Attendance',
-			href: '/attendance/mark',
-			icon: 'check',
-			requires: ['attend:write']
-		},
-		{
-			label: 'Grades',
-			href: '/grades',
-			icon: 'award',
-			requires: ['grade:read']
-		},
-		{
-			label: 'Users',
-			href: '/users',
-			icon: 'users',
-			requires: ['user:manage']
-		}
-	];
+  const userPerms = locals.me.data.perms || [] as string[];
 
-	// Filter menu items based on user permissions
-	const userPermissions = locals.me.data.perms || [];
-	const hasPermission = (perm: string) => userPermissions.includes(perm);
+  const items = await db
+    .select({
+      label: menuItem.label,
+      href: menuItem.href,
+      icon: menuItem.icon,
+      requires: menuItem.requiredPermissions
+    })
+    .from(menuItem)
+    .where(eq(menuItem.isActive, true))
+    .orderBy(asc(menuItem.sortOrder));
 
-	const filteredItems = menuItems.filter(item => {
-		if (!item.requires) {
-			return true; // No specific permissions required
-		}
-		// User needs at least one of the required permissions
-		return item.requires.some(perm => hasPermission(perm));
-	});
+  const filtered = items.filter((it: any) => {
+    const reqs = (it.requires ?? []) as string[];
+    if (!reqs.length) return true;
+    return reqs.some((p) => userPerms.includes(p));
+  }).map(({ label, href, icon }) => ({ label, href, icon }));
 
-	return json({
-		data: filteredItems
-	} satisfies MenuResponse);
+  return json({ data: filtered } satisfies MenuResponse);
 };
