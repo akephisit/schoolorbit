@@ -133,10 +133,11 @@ async function authenticatePersonnel(nationalId: string, password?: string): Pro
 			})
 			.from(appUser)
 			.innerJoin(personnelProfile, eq(appUser.id, personnelProfile.userId))
-			.where(and(
-				eq(personnelProfile.nationalIdHash, nationalIdHash),
-				eq(appUser.status, sql`${'active'}::user_status`)
-			))
+				.where(and(
+					eq(personnelProfile.nationalIdHash, nationalIdHash),
+					// Cast column to text for cross-env compatibility (enum/text)
+					sql`${appUser.status}::text = ${'active'}`
+				))
 			.limit(1);
 	} catch (dbError) {
 		throw new Error('Authentication failed');
@@ -173,11 +174,11 @@ async function authenticateStudent(studentCode: string, password?: string): Prom
 		})
 		.from(appUser)
 		.innerJoin(studentProfile, eq(appUser.id, studentProfile.userId))
-		.where(and(
-			eq(studentProfile.studentCode, studentCode),
-			// Cast parameter to enum to satisfy Postgres
-			eq(appUser.status, sql`${'active'}::user_status`)
-		))
+			.where(and(
+				eq(studentProfile.studentCode, studentCode),
+				// Cast column to text for cross-env compatibility (enum/text)
+				sql`${appUser.status}::text = ${'active'}`
+			))
 		.limit(1);
 
 	const user = result[0];
@@ -215,11 +216,11 @@ async function authenticateGuardian(nationalId: string, password?: string): Prom
 		})
 		.from(appUser)
 		.innerJoin(guardianProfile, eq(appUser.id, guardianProfile.userId))
-		.where(and(
-			eq(guardianProfile.nationalIdHash, nationalIdHash),
-			// Cast parameter to enum to satisfy Postgres
-			eq(appUser.status, sql`${'active'}::user_status`)
-		))
+			.where(and(
+				eq(guardianProfile.nationalIdHash, nationalIdHash),
+				// Cast column to text for cross-env compatibility (enum/text)
+				sql`${appUser.status}::text = ${'active'}`
+			))
 		.limit(1);
 
 	const user = result[0];
