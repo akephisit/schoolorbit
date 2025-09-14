@@ -1,9 +1,9 @@
 import { createHash, randomBytes } from 'crypto';
-import { NATIONAL_ID_SALT } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 
 // Use env-configured salt; default remains for backward compatibility
 export function hashNationalId(nationalId: string, salt?: string): string {
-    const effectiveSalt = salt ?? NATIONAL_ID_SALT ?? 'default_salt';
+    const effectiveSalt = salt ?? env.NATIONAL_ID_SALT ?? 'default_salt';
     const hasher = createHash('sha256');
     hasher.update(effectiveSalt);
     hasher.update(nationalId);
