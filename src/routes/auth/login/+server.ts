@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import { verify } from 'argon2';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 import { getConfig } from '$lib/server/config';
 import { db } from '$lib/server/database';
@@ -170,7 +170,8 @@ async function authenticatePersonnel(nationalId: string, password?: string): Pro
 			.innerJoin(personnelProfile, eq(appUser.id, personnelProfile.userId))
 			.where(and(
 				eq(personnelProfile.nationalIdHash, nationalIdHash),
-				eq(appUser.status, 'active')
+				// Cast parameter to enum to satisfy Postgres
+				eq(appUser.status, sql`${'active'}::user_status`)
 			))
 			.limit(1);
 
@@ -222,7 +223,8 @@ async function authenticateStudent(studentCode: string, password?: string): Prom
 		.innerJoin(studentProfile, eq(appUser.id, studentProfile.userId))
 		.where(and(
 			eq(studentProfile.studentCode, studentCode),
-			eq(appUser.status, 'active')
+			// Cast parameter to enum to satisfy Postgres
+			eq(appUser.status, sql`${'active'}::user_status`)
 		))
 		.limit(1);
 
@@ -263,7 +265,8 @@ async function authenticateGuardian(nationalId: string, password?: string): Prom
 		.innerJoin(guardianProfile, eq(appUser.id, guardianProfile.userId))
 		.where(and(
 			eq(guardianProfile.nationalIdHash, nationalIdHash),
-			eq(appUser.status, 'active')
+			// Cast parameter to enum to satisfy Postgres
+			eq(appUser.status, sql`${'active'}::user_status`)
 		))
 		.limit(1);
 
