@@ -15,7 +15,8 @@
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "drizzle-kit migrate",
 		"db:studio": "drizzle-kit studio",
-		"vercel-build": "npm run db:generate && npm run build"
+		"vercel-build": "npm run db:generate && npm run build",
+		"seed:users": "node scripts/seed-users.mjs"
 	},
 	"devDependencies": {
 		"@internationalized/date": "^3.9.0",

@@ -50,6 +50,23 @@ npm run db:migrate
 npm run db:studio
 ```
 
+## Test Data Seeding
+
+Seed example users for local testing (admin, teacher, student, guardian):
+
+```sh
+# Ensure .env has DATABASE_URL set to your Neon/Postgres
+# Optional: set NATIONAL_ID_SALT for hashing national IDs
+npm run seed:users
+```
+
+Default credentials (all use the same password `12345678`):
+
+- teacher@school.test
+- student@school.test
+- parent@school.test
+- admin@school.test
+
 ## Deployment
 
 Optimized for Vercel serverless deployment:
