@@ -31,41 +31,39 @@ export class RefreshService {
 		return [sessionId, refreshToken];
 	}
 
-	async verifyAndRotate(refreshToken: string): Promise<[string, string]> {
-		const refreshHash = await hash(refreshToken);
-		
-		const sessions = await this.database
-			.select()
-			.from(refreshSession)
-			.where(
-				and(
-					eq(refreshSession.tokenHash, refreshHash),
-					gt(refreshSession.expiresAt, new Date()),
-					isNull(refreshSession.updatedAt) // not rotated
-				)
-			);
+    async verifyAndRotate(refreshToken: string): Promise<[string, string]> {
+        // Find non-expired sessions and verify token against stored hash
+        const candidates = await this.database
+            .select()
+            .from(refreshSession)
+            .where(gt(refreshSession.expiresAt, new Date()));
 
-		if (sessions.length === 0) {
-			throw new Error('Invalid refresh token');
-		}
+        let session = null as (typeof candidates[number]) | null;
+        for (const s of candidates) {
+            if (await verify(s.tokenHash, refreshToken)) {
+                session = s;
+                break;
+            }
+        }
 
-		const session = sessions[0];
-		
-		// Generate new refresh token
-		const newRefreshToken = generateSecureToken();
-		const newRefreshHash = await hash(newRefreshToken);
+        if (!session) {
+            throw new Error('Invalid refresh token');
+        }
 
-		// Update session with new token and mark as rotated
-		await this.database
-			.update(refreshSession)
-			.set({
-				tokenHash: newRefreshHash,
-				updatedAt: new Date()
-			})
-			.where(eq(refreshSession.id, session.id));
+        // Generate new refresh token and rotate
+        const newRefreshToken = generateSecureToken();
+        const newRefreshHash = await hash(newRefreshToken);
 
-		return [session.userId, newRefreshToken];
-	}
+        await this.database
+            .update(refreshSession)
+            .set({
+                tokenHash: newRefreshHash,
+                updatedAt: new Date()
+            })
+            .where(eq(refreshSession.id, session.id));
+
+        return [session.userId, newRefreshToken];
+    }
 
 	async revokeSession(sessionId: string): Promise<void> {
 		await this.database

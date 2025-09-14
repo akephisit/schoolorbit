@@ -155,9 +155,10 @@ async function authenticatePersonnel(nationalId: string, password?: string): Pro
 				sql`${appUser.status}::text = ${'active'}`
 			))
 			.limit(1);
-	} catch {
-		throw new Error('เกิดข้อผิดพลาดในการยืนยันตัวตน');
-	}
+    } catch (err) {
+        console.error('Personnel auth query error:', err);
+        throw new Error('เกิดข้อผิดพลาดในการยืนยันตัวตน');
+    }
 
 	let user = result[0];
 	if (!user) {
@@ -193,18 +194,24 @@ async function authenticateStudent(studentCode: string, password?: string): Prom
 	}
 	const code = studentCode.trim();
 
-	const result = await db
-		.select({
-			id: appUser.id,
-			passwordHash: appUser.passwordHash
-		})
-		.from(appUser)
-		.innerJoin(studentProfile, eq(appUser.id, studentProfile.userId))
-		.where(and(
-			eq(studentProfile.studentCode, code),
-			sql`${appUser.status}::text = ${'active'}`
-		))
-		.limit(1);
+    let result;
+    try {
+        result = await db
+            .select({
+                id: appUser.id,
+                passwordHash: appUser.passwordHash
+            })
+            .from(appUser)
+            .innerJoin(studentProfile, eq(appUser.id, studentProfile.userId))
+            .where(and(
+                eq(studentProfile.studentCode, code),
+                sql`${appUser.status}::text = ${'active'}`
+            ))
+            .limit(1);
+    } catch (err) {
+        console.error('Student auth query error:', err);
+        throw new Error('เกิดข้อผิดพลาดในการยืนยันตัวตน');
+    }
 
 	const user = result[0];
 
@@ -250,18 +257,24 @@ async function authenticateGuardian(nationalId: string, password?: string): Prom
 	const hashLegacy = hashNationalId(digits, 'default_salt');
 	const hashes = hashPrimary === hashLegacy ? [hashPrimary] : [hashPrimary, hashLegacy];
 	
-	const result = await db
-		.select({
-			id: appUser.id,
-			passwordHash: appUser.passwordHash
-		})
-		.from(appUser)
-		.innerJoin(guardianProfile, eq(appUser.id, guardianProfile.userId))
-		.where(and(
-			inArray(guardianProfile.nationalIdHash, hashes),
-			sql`${appUser.status}::text = ${'active'}`
-		))
-		.limit(1);
+    let result;
+    try {
+        result = await db
+            .select({
+                id: appUser.id,
+                passwordHash: appUser.passwordHash
+            })
+            .from(appUser)
+            .innerJoin(guardianProfile, eq(appUser.id, guardianProfile.userId))
+            .where(and(
+                inArray(guardianProfile.nationalIdHash, hashes),
+                sql`${appUser.status}::text = ${'active'}`
+            ))
+            .limit(1);
+    } catch (err) {
+        console.error('Guardian auth query error:', err);
+        throw new Error('เกิดข้อผิดพลาดในการยืนยันตัวตน');
+    }
 
 	const user = result[0];
 
