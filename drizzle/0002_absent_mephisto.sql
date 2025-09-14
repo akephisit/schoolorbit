@@ -1,2 +1,0 @@
--- Placeholder migration added to reconcile meta journal.
--- No-op: this file intentionally contains no SQL changes.
