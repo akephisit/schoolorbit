@@ -33,59 +33,37 @@ export class RefreshService {
     }
 
     async verifyAndRotate(refreshToken: string): Promise<[string, string]> {
-        // Preferred fast path: token format "<sessionId>.<secret>"
+        // Require new format: "<sessionId>.<secret>"
         const dot = refreshToken.indexOf('.')
-        if (dot > 0) {
-            const sessionId = refreshToken.slice(0, dot);
-            const secret = refreshToken.slice(dot + 1);
+        if (dot <= 0) throw new Error('Invalid refresh token');
 
-            const rows = await this.database
-                .select()
-                .from(refreshSession)
-                .where(and(eq(refreshSession.id, sessionId), gt(refreshSession.expiresAt, new Date())));
+        const sessionId = refreshToken.slice(0, dot);
+        const secret = refreshToken.slice(dot + 1);
 
-            if (!rows.length) {
-                throw new Error('Invalid refresh token');
-            }
-            const s = rows[0];
-            const ok = await verify(s.tokenHash, secret);
-            if (!ok) {
-                throw new Error('Invalid refresh token');
-            }
-
-            const newSecret = generateSecureToken();
-            const newRefreshToken = `${sessionId}.${newSecret}`;
-            const newHash = await hash(newSecret);
-
-            await this.database
-                .update(refreshSession)
-                .set({ tokenHash: newHash, updatedAt: new Date() })
-                .where(eq(refreshSession.id, sessionId));
-
-            return [s.userId, newRefreshToken];
-        }
-
-        // Legacy fallback: tokens generated before embedding session id
-        const candidates = await this.database
+        const rows = await this.database
             .select()
             .from(refreshSession)
-            .where(gt(refreshSession.expiresAt, new Date()));
+            .where(and(eq(refreshSession.id, sessionId), gt(refreshSession.expiresAt, new Date())));
 
-        for (const s of candidates) {
-            if (await verify(s.tokenHash, refreshToken)) {
-                const newSecret = generateSecureToken();
-                const newRefreshToken = `${s.id}.${newSecret}`;
-                const newHash = await hash(newSecret);
-
-                await this.database
-                    .update(refreshSession)
-                    .set({ tokenHash: newHash, updatedAt: new Date() })
-                    .where(eq(refreshSession.id, s.id));
-
-                return [s.userId, newRefreshToken];
-            }
+        if (!rows.length) {
+            throw new Error('Invalid refresh token');
         }
-        throw new Error('Invalid refresh token');
+        const s = rows[0];
+        const ok = await verify(s.tokenHash, secret);
+        if (!ok) {
+            throw new Error('Invalid refresh token');
+        }
+
+        const newSecret = generateSecureToken();
+        const newRefreshToken = `${sessionId}.${newSecret}`;
+        const newHash = await hash(newSecret);
+
+        await this.database
+            .update(refreshSession)
+            .set({ tokenHash: newHash, updatedAt: new Date() })
+            .where(eq(refreshSession.id, sessionId));
+
+        return [s.userId, newRefreshToken];
     }
 
 	async revokeSession(sessionId: string): Promise<void> {

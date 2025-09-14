@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import { verify } from 'argon2';
-import { eq, and, sql, inArray } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 import { getConfig } from '$lib/server/config';
 import { db } from '$lib/server/database';
@@ -135,10 +135,8 @@ async function authenticatePersonnel(nationalId: string, password?: string): Pro
 		throw new Error('กรุณากรอกรหัสผ่าน');
 	}
 
-	// Support both env salt and legacy default salt to bridge deployments
-	const hashPrimary = hashNationalId(digits);
-	const hashLegacy = hashNationalId(digits, 'default_salt');
-	const hashes = hashPrimary === hashLegacy ? [hashPrimary] : [hashPrimary, hashLegacy];
+    // Use current configured salt only
+    const hashValue = hashNationalId(digits);
 
 	let result;
 	try {
@@ -149,11 +147,11 @@ async function authenticatePersonnel(nationalId: string, password?: string): Pro
 			})
 			.from(appUser)
 			.innerJoin(personnelProfile, eq(appUser.id, personnelProfile.userId))
-			.where(and(
-				inArray(personnelProfile.nationalIdHash, hashes),
-				// Cross-env: enum/text
-				sql`${appUser.status}::text = ${'active'}`
-			))
+            .where(and(
+                eq(personnelProfile.nationalIdHash, hashValue),
+                // Cross-env: enum/text
+                sql`${appUser.status}::text = ${'active'}`
+            ))
 			.limit(1);
     } catch (err) {
         console.error('Personnel auth query error:', err);
@@ -163,12 +161,12 @@ async function authenticatePersonnel(nationalId: string, password?: string): Pro
 	let user = result[0];
 	if (!user) {
 		// If not found as active, check if exists but inactive
-		const probe = await db
-			.select({ status: appUser.status })
-			.from(appUser)
-			.innerJoin(personnelProfile, eq(appUser.id, personnelProfile.userId))
-			.where(inArray(personnelProfile.nationalIdHash, hashes))
-			.limit(1);
+        const probe = await db
+            .select({ status: appUser.status })
+            .from(appUser)
+            .innerJoin(personnelProfile, eq(appUser.id, personnelProfile.userId))
+            .where(eq(personnelProfile.nationalIdHash, hashValue))
+            .limit(1);
 		if (probe.length && String((probe[0] as any).status) !== 'active') {
 			throw new Error('บัญชีถูกระงับหรือไม่พร้อมใช้งาน');
 		}
@@ -253,9 +251,7 @@ async function authenticateGuardian(nationalId: string, password?: string): Prom
 		throw new Error('กรุณากรอกรหัสผ่าน');
 	}
 
-	const hashPrimary = hashNationalId(digits);
-	const hashLegacy = hashNationalId(digits, 'default_salt');
-	const hashes = hashPrimary === hashLegacy ? [hashPrimary] : [hashPrimary, hashLegacy];
+    const hashValue = hashNationalId(digits);
 	
     let result;
     try {
@@ -267,7 +263,7 @@ async function authenticateGuardian(nationalId: string, password?: string): Prom
             .from(appUser)
             .innerJoin(guardianProfile, eq(appUser.id, guardianProfile.userId))
             .where(and(
-                inArray(guardianProfile.nationalIdHash, hashes),
+                eq(guardianProfile.nationalIdHash, hashValue),
                 sql`${appUser.status}::text = ${'active'}`
             ))
             .limit(1);
@@ -279,12 +275,12 @@ async function authenticateGuardian(nationalId: string, password?: string): Prom
 	const user = result[0];
 
 	if (!user) {
-		const probe = await db
-			.select({ status: appUser.status })
-			.from(appUser)
-			.innerJoin(guardianProfile, eq(appUser.id, guardianProfile.userId))
-			.where(inArray(guardianProfile.nationalIdHash, hashes))
-			.limit(1);
+        const probe = await db
+            .select({ status: appUser.status })
+            .from(appUser)
+            .innerJoin(guardianProfile, eq(appUser.id, guardianProfile.userId))
+            .where(eq(guardianProfile.nationalIdHash, hashValue))
+            .limit(1);
 		if (probe.length && String((probe[0] as any).status) !== 'active') {
 			throw new Error('บัญชีถูกระงับหรือไม่พร้อมใช้งาน');
 		}
