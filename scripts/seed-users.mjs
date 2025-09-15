@@ -245,7 +245,10 @@ async function main() {
       { label: 'บันทึกการเข้าเรียน', href: '/attendance/mark', icon: 'check', requires: ['attend:write'], sort: 30 },
       { label: 'ผลการเรียน', href: '/grades', icon: 'award', requires: ['grade:read'], sort: 40 },
       { label: 'ผู้ใช้', href: '/users', icon: 'users', requires: ['user:manage'], sort: 50 },
-      { label: 'บทบาทและสิทธิ์', href: '/roles', icon: 'settings', requires: ['user:manage'], sort: 55 }
+      { label: 'บทบาทและสิทธิ์', href: '/roles', icon: 'settings', requires: ['user:manage'], sort: 55 },
+      { label: 'หน่วยงาน/ฝ่าย', href: '/org', icon: 'building', requires: ['user:manage'], sort: 60 },
+      { label: 'ตำแหน่ง', href: '/positions', icon: 'briefcase', requires: ['user:manage'], sort: 70 },
+      { label: 'ครูประจำชั้น', href: '/homeroom', icon: 'idcard', requires: ['user:manage'], sort: 80 }
     ];
     for (const it of items) {
       await sql`
@@ -263,22 +266,28 @@ async function main() {
       { th: 'การเข้าเรียน', href: '/attendance' },
       { th: 'บันทึกการเข้าเรียน', href: '/attendance/mark' },
       { th: 'ผลการเรียน', href: '/grades' },
-      { th: 'ผู้ใช้', href: '/users' }
+      { th: 'ผู้ใช้', href: '/users' },
+      { th: 'บทบาทและสิทธิ์', href: '/roles' },
+      { th: 'หน่วยงาน/ฝ่าย', href: '/org' },
+      { th: 'ตำแหน่ง', href: '/positions' },
+      { th: 'ครูประจำชั้น', href: '/homeroom' }
     ];
     for (const u of updates) {
       await sql`UPDATE menu_item SET label = ${u.th} WHERE href = ${u.href}`;
     }
-    // Ensure roles management menu exists
-    const rolesMenu = await sql`SELECT 1 FROM menu_item WHERE href = ${'/roles'} LIMIT 1`;
-    if (!rolesMenu.length) {
-      await sql`
-        INSERT INTO menu_item (label, href, icon, required_permissions, sort_order, is_active)
-        VALUES (${'บทบาทและสิทธิ์'}, ${'/roles'}, ${'settings'}, ${JSON.stringify(['user:manage'])}, ${55}, true)
-      `;
-    } else {
-      // If exists, make sure label is Thai
-      await sql`UPDATE menu_item SET label = ${'บทบาทและสิทธิ์'} WHERE href = ${'/roles'}`;
-    }
+    // Ensure newly added admin menus exist
+    const ensureMenu = async (label, href, icon, sort) => {
+      const exists = await sql`SELECT 1 FROM menu_item WHERE href = ${href} LIMIT 1`;
+      if (!exists.length) {
+        await sql`INSERT INTO menu_item (label, href, icon, required_permissions, sort_order, is_active) VALUES (${label}, ${href}, ${icon}, ${JSON.stringify(['user:manage'])}, ${sort}, true)`;
+      } else {
+        await sql`UPDATE menu_item SET label = ${label}, icon = ${icon}, required_permissions = ${JSON.stringify(['user:manage'])}, sort_order = ${sort}, is_active = true WHERE href = ${href}`;
+      }
+    };
+    await ensureMenu('บทบาทและสิทธิ์', '/roles', 'settings', 55);
+    await ensureMenu('หน่วยงาน/ฝ่าย', '/org', 'building', 60);
+    await ensureMenu('ตำแหน่ง', '/positions', 'briefcase', 70);
+    await ensureMenu('ครูประจำชั้น', '/homeroom', 'idcard', 80);
     console.log('✅ Thai labels applied to existing menu items');
   }
 

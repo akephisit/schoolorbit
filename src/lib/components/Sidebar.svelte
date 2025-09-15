@@ -11,6 +11,9 @@
 		Award,
 		Users,
 		Settings,
+		Building2,
+		Briefcase,
+		IdCard,
 		Menu,
 		X,
 		LogOut
@@ -30,7 +33,10 @@
 		check: CheckCircle,
 		award: Award,
 		users: Users,
-		settings: Settings
+		settings: Settings,
+		building: Building2,
+		briefcase: Briefcase,
+		idcard: IdCard
 	};
 
 	onMount(async () => {

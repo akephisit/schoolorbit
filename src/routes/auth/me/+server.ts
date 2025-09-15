@@ -43,7 +43,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 		data: {
 			user: {
 				id: userData.id,
-				email: userData.email,
+				email: userData.email ?? undefined,
 				displayName: userData.displayName
 			},
 			roles: locals.me.data.roles || [],
