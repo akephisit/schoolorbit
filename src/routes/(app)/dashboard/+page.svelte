@@ -65,7 +65,7 @@
 
 	function getUserTypeTitle() {
 		const roles = $page.data.roles || [];
-		if (roles.includes('admin')) return 'แดشบอร์ดผู้ดูแลระบบ';
+		if (roles.includes('admin')) return 'แดชบอร์ดผู้ดูแลระบบ';
 		if (roles.includes('teacher')) return 'แดชบอร์ดครู';
 		if (roles.includes('student')) return 'แดชบอร์ดนักเรียน';
 		if (roles.includes('parent')) return 'แดชบอร์ดผู้ปกครอง';
