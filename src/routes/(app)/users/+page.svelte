@@ -72,6 +72,19 @@
   let editPassword: Record<string, string> = {};
   let editRoles: Record<string, Set<string>> = {};
 
+  const roleLabel: Record<string, string> = {
+    admin: 'ผู้ดูแลระบบ',
+    teacher: 'ครู',
+    student: 'นักเรียน',
+    guardian: 'ผู้ปกครอง'
+  };
+
+  const statusLabel: Record<string, string> = {
+    active: 'ใช้งาน',
+    inactive: 'ไม่ใช้งาน',
+    suspended: 'ระงับ'
+  };
+
   function startEdit(u: UserRow) {
     editing[u.id] = true;
     editName[u.id] = u.displayName;
@@ -136,7 +149,7 @@
           {#each roles as r}
             <label class="flex items-center gap-1 text-sm">
               <input type="checkbox" checked={cRoles.has(r.code)} onchange={(e) => { e.currentTarget?.checked ? cRoles.add(r.code) : cRoles.delete(r.code); cRoles = new Set(cRoles); }} />
-              {r.code}
+              {roleLabel[r.code] || r.code}
             </label>
           {/each}
         </div>
@@ -186,12 +199,12 @@
                 <TableCell>
                   {#if editing[u.id]}
                     <select class="border rounded px-2 py-1" bind:value={editStatus[u.id]}>
-                      <option value="active">active</option>
-                      <option value="inactive">inactive</option>
-                      <option value="suspended">suspended</option>
+                      <option value="active">ใช้งาน</option>
+                      <option value="inactive">ไม่ใช้งาน</option>
+                      <option value="suspended">ระงับ</option>
                     </select>
                   {:else}
-                    <span class="text-sm">{u.status}</span>
+                    <span class="text-sm">{statusLabel[u.status] || u.status}</span>
                   {/if}
                 </TableCell>
                 <TableCell>
@@ -200,7 +213,7 @@
                       {#each roles as r}
                         <label class="flex items-center gap-1 text-sm">
                           <input type="checkbox" checked={editRoles[u.id]?.has(r.code)} onchange={(e) => { const set = editRoles[u.id] || new Set<string>(); if (e.currentTarget?.checked) set.add(r.code); else set.delete(r.code); editRoles[u.id] = new Set(set); }} />
-                          {r.code}
+                          {roleLabel[r.code] || r.code}
                         </label>
                       {/each}
                     </div>
@@ -208,7 +221,7 @@
                       <Input placeholder="ตั้งรหัสผ่านใหม่ (>=8)" type="password" bind:value={editPassword[u.id]} />
                     </div>
                   {:else}
-                    <span class="text-sm">{u.roles.join(', ')}</span>
+                    <span class="text-sm">{u.roles.map((c) => roleLabel[c] || c).join(', ')}</span>
                   {/if}
                 </TableCell>
                 <TableCell class="text-right space-x-2">
