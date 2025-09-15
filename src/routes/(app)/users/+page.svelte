@@ -4,6 +4,7 @@
   import { Input } from '$lib/components/ui/input';
   import { Button } from '$lib/components/ui/button';
   import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '$lib/components/ui/table';
+  import { toast } from 'svelte-sonner';
 
   type UserRow = { id: string; email: string | null; displayName: string; status: string; roles: string[] };
   type RoleOpt = { id: string; code: string; name: string };
@@ -57,8 +58,9 @@
       if (!res.ok) throw new Error(await res.text());
       cEmail = ''; cName = ''; cPassword = ''; cRoles = new Set();
       await loadUsers();
+      toast.success('สร้างผู้ใช้สำเร็จ');
     } catch (e) {
-      alert('สร้างผู้ใช้ไม่สำเร็จ');
+      toast.error('สร้างผู้ใช้ไม่สำเร็จ');
     } finally {
       creating = false;
     }
@@ -97,25 +99,27 @@
   async function saveEdit(u: UserRow) {
     const upd = { email: editEmail[u.id], displayName: editName[u.id], status: editStatus[u.id] };
     const res = await fetch(`/users/api/users/${u.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(upd) });
-    if (!res.ok) { alert('บันทึกข้อมูลผู้ใช้ไม่สำเร็จ'); return; }
+    if (!res.ok) { toast.error('บันทึกข้อมูลผู้ใช้ไม่สำเร็จ'); return; }
     // roles
     const rolesRes = await fetch(`/users/api/users/${u.id}/roles`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roles: Array.from(editRoles[u.id]) }) });
-    if (!rolesRes.ok) { alert('บันทึกบทบาทไม่สำเร็จ'); return; }
+    if (!rolesRes.ok) { toast.error('บันทึกบทบาทไม่สำเร็จ'); return; }
     // password if provided
     const pwd = editPassword[u.id];
     if (pwd && pwd.length >= 8) {
       const passRes = await fetch(`/users/api/users/${u.id}/password`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pwd }) });
-      if (!passRes.ok) { alert('เปลี่ยนรหัสผ่านไม่สำเร็จ'); }
+      if (!passRes.ok) { toast.error('เปลี่ยนรหัสผ่านไม่สำเร็จ'); } else { toast.success('เปลี่ยนรหัสผ่านแล้ว'); }
     }
     await loadUsers();
     delete editing[u.id];
+    toast.success('บันทึกข้อมูลผู้ใช้สำเร็จ');
   }
 
   async function removeUser(u: UserRow) {
     if (!confirm(`ลบผู้ใช้ ${u.displayName}?`)) return;
     const res = await fetch(`/users/api/users/${u.id}`, { method: 'DELETE' });
-    if (!res.ok) { alert('ลบไม่สำเร็จ'); return; }
+    if (!res.ok) { toast.error('ลบไม่สำเร็จ'); return; }
     await loadUsers();
+    toast.success('ลบผู้ใช้สำเร็จ');
   }
 </script>
 

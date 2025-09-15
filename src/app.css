@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @import "tw-animate-css";
@@ -118,5 +119,9 @@
   body {
     @apply bg-background text-foreground;
     font-family: 'Kanit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+  }
+  /* Ensure Kanit is used in Sonner toasts as well */
+  [data-sonner-toaster], [data-sonner-toaster] * {
+    font-family: 'Kanit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol' !important;
   }
 }

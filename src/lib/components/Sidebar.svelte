@@ -47,18 +47,18 @@
 		}
 	});
 
-	async function handleLogout() {
-		try {
-			const response = await fetch('/auth/logout', {
-				method: 'POST'
-			});
-			goto('/login/personnel');
-		} catch (error) {
-			console.error('Logout failed:', error);
-			// Still redirect even if logout call fails
-			goto('/login/personnel');
-		}
-	}
+    import { toast } from 'svelte-sonner';
+    import { tick } from 'svelte';
+    async function handleLogout() {
+        try {
+            await fetch('/auth/logout', { method: 'POST' });
+            // Navigate with flag so destination page shows toast reliably
+            goto('/login/personnel?logout=1');
+        } catch (error) {
+            console.error('Logout failed:', error);
+            goto('/login/personnel?logout=0');
+        }
+    }
 
 	function toggleMobileMenu() {
 		mobileMenuOpen = !mobileMenuOpen;

@@ -4,12 +4,32 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '$lib/components/ui/card';
+    import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '$lib/components/ui/card';
+    import { toast } from 'svelte-sonner';
+    import { onMount } from 'svelte';
 
 	let nationalId = '';
 	let password = '';
 	let loading = false;
-	let error = '';
+let error = '';
+
+    // Show logout toast if redirected with flag
+    onMount(() => {
+        const sp = new URLSearchParams(window.location.search);
+        const flag = sp.get('logout');
+        if (flag === '1') {
+            toast.success('ออกจากระบบแล้ว');
+            // Clean the query param without reloading
+            const url = new URL(window.location.href);
+            url.searchParams.delete('logout');
+            window.history.replaceState({}, '', url.toString());
+        } else if (flag === '0') {
+            toast.error('ออกจากระบบไม่สำเร็จ แต่เข้าสู่หน้าเข้าสู่ระบบแล้ว');
+            const url = new URL(window.location.href);
+            url.searchParams.delete('logout');
+            window.history.replaceState({}, '', url.toString());
+        }
+    });
 
 	async function handleLogin() {
 		if (!nationalId.trim() || !password.trim()) {
@@ -33,19 +53,21 @@
 				})
 			});
 
-			if (!response.ok) {
-				const errorData = await response.text();
-				throw new Error(errorData || 'การเข้าสู่ระบบล้มเหลว');
-			}
+            if (!response.ok) {
+                const errorData = await response.text();
+                throw new Error(errorData || 'การเข้าสู่ระบบล้มเหลว');
+            }
 
-			// Redirect to dashboard on successful login
-			goto('/dashboard');
-		} catch (err) {
-			error = err instanceof Error ? err.message : 'การเข้าสู่ระบบล้มเหลว';
-		} finally {
-			loading = false;
-		}
-	}
+            // Redirect to dashboard on successful login
+            toast.success('เข้าสู่ระบบสำเร็จ');
+            goto('/dashboard');
+        } catch (err) {
+            error = err instanceof Error ? err.message : 'การเข้าสู่ระบบล้มเหลว';
+            toast.error(error);
+        } finally {
+            loading = false;
+        }
+    }
 
 	function handleKeyPress(event: KeyboardEvent) {
 		if (event.key === 'Enter') {
