@@ -3,7 +3,6 @@
   import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '$lib/components/ui/card';
   import { Input } from '$lib/components/ui/input';
   import UserAutocomplete from '$lib/components/UserAutocomplete.svelte';
-  import { toast } from 'svelte-sonner';
   import { Button } from '$lib/components/ui/button';
 
   type HR = { id: string; classCode: string; email: string; displayName: string };
@@ -25,18 +24,16 @@
   async function add() {
     if (!classCode.trim() || !teacherEmail.trim()) return;
     const res = await fetch('/homeroom/api/assignments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ classCode: classCode.trim(), teacherEmail: teacherEmail.trim() }) });
-    if (!res.ok) { toast.error('เพิ่มครูประจำชั้นไม่สำเร็จ'); return; }
+    if (!res.ok) { alert('เพิ่มครูประจำชั้นไม่สำเร็จ'); return; }
     classCode=''; teacherEmail='';
     await loadAll();
-    toast.success('เพิ่มครูประจำชั้นแล้ว');
   }
 
   async function remove(id: string) {
     if (!confirm('ลบรายการนี้หรือไม่?')) return;
     const res = await fetch(`/homeroom/api/assignments/${id}`, { method: 'DELETE' });
-    if (!res.ok) { toast.error('ลบไม่สำเร็จ'); return; }
+    if (!res.ok) { alert('ลบไม่สำเร็จ'); return; }
     await loadAll();
-    toast.success('ลบแล้ว');
   }
 </script>
 

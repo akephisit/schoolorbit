@@ -3,7 +3,6 @@
   import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '$lib/components/ui/card';
   import { Input } from '$lib/components/ui/input';
   import UserAutocomplete from '$lib/components/UserAutocomplete.svelte';
-  import { toast } from 'svelte-sonner';
   import { Button } from '$lib/components/ui/button';
 
   type Position = { id: string; code: string; titleTh: string; category: string | null };
@@ -43,24 +42,22 @@
       if (!res.ok) throw new Error(await res.text());
       pCode=''; pTitle=''; pCat='';
       await loadPositions();
-    } catch { toast.error('เพิ่มตำแหน่งไม่สำเร็จ'); } finally { creating = false; }
+    } catch { alert('เพิ่มตำแหน่งไม่สำเร็จ'); } finally { creating = false; }
   }
 
   async function addAssign() {
     if (!selectedPosId || !aEmail.trim()) return;
     const res = await fetch('/positions/api/assignments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ positionId: selectedPosId, userEmail: aEmail.trim() }) });
-    if (!res.ok) { toast.error('มอบหมายตำแหน่งไม่สำเร็จ'); return; }
+    if (!res.ok) { alert('มอบหมายตำแหน่งไม่สำเร็จ'); return; }
     aEmail='';
     await loadAssigns();
-    toast.success('มอบหมายตำแหน่งแล้ว');
   }
 
   async function removeAssign(id: string) {
     if (!confirm('ยกเลิกมอบหมายตำแหน่งนี้หรือไม่?')) return;
     const res = await fetch(`/positions/api/assignments/${id}`, { method: 'DELETE' });
-    if (!res.ok) { toast.error('ลบไม่สำเร็จ'); return; }
+    if (!res.ok) { alert('ลบไม่สำเร็จ'); return; }
     await loadAssigns();
-    toast.success('ยกเลิกมอบหมายแล้ว');
   }
 </script>
 

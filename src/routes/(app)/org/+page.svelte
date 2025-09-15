@@ -3,7 +3,6 @@
   import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '$lib/components/ui/card';
   import { Input } from '$lib/components/ui/input';
   import UserAutocomplete from '$lib/components/UserAutocomplete.svelte';
-  import { toast } from 'svelte-sonner';
   import { Button } from '$lib/components/ui/button';
 
   type OrgUnit = { id: string; code: string; nameTh: string; type: string | null; parentId: string | null };
@@ -51,9 +50,8 @@
       if (!res.ok) throw new Error(await res.text());
       uCode = ''; uName = ''; uType = '';
       await loadUnits();
-      toast.success('สร้างหน่วยงานสำเร็จ');
     } catch (e) {
-      toast.error('สร้างหน่วยงานไม่สำเร็จ');
+      alert('สร้างหน่วยงานไม่สำเร็จ');
     } finally { creating = false; }
   }
 
@@ -61,25 +59,22 @@
     if (!selectedUnitId || !mEmail.trim()) return;
     const payload = { unitId: selectedUnitId, userEmail: mEmail.trim(), roleInUnit: mRole };
     const res = await fetch('/org/api/memberships', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    if (!res.ok) { toast.error('เพิ่มสมาชิกไม่สำเร็จ'); return; }
+    if (!res.ok) { alert('เพิ่มสมาชิกไม่สำเร็จ'); return; }
     mEmail=''; mRole='member';
     await loadMembers();
-    toast.success('เพิ่มสมาชิกแล้ว');
   }
 
   async function updateMemberRole(id: string, role: 'head'|'deputy'|'member') {
     const res = await fetch(`/org/api/memberships/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roleInUnit: role }) });
-    if (!res.ok) { toast.error('อัปเดตบทบาทในฝ่ายไม่สำเร็จ'); return; }
+    if (!res.ok) { alert('อัปเดตบทบาทในฝ่ายไม่สำเร็จ'); return; }
     await loadMembers();
-    toast.success('อัปเดตบทบาทในฝ่ายแล้ว');
   }
 
   async function removeMember(id: string) {
     if (!confirm('นำสมาชิกออกจากฝ่ายนี้หรือไม่?')) return;
     const res = await fetch(`/org/api/memberships/${id}`, { method: 'DELETE' });
-    if (!res.ok) { toast.error('ลบไม่สำเร็จ'); return; }
+    if (!res.ok) { alert('ลบไม่สำเร็จ'); return; }
     await loadMembers();
-    toast.success('นำสมาชิกออกแล้ว');
   }
 </script>
 
