@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '$lib/components/ui/card';
   import { Input } from '$lib/components/ui/input';
+  import UserAutocomplete from '$lib/components/UserAutocomplete.svelte';
   import { Button } from '$lib/components/ui/button';
 
   type Position = { id: string; code: string; titleTh: string; category: string | null };
@@ -112,7 +113,7 @@
             <div class="text-sm text-gray-600">กรุณาเลือกตำแหน่งทางซ้าย</div>
           {:else}
             <div class="flex flex-wrap gap-2 items-end">
-              <Input class="w-56" placeholder="อีเมลบุคลากร" bind:value={aEmail} />
+              <div class="w-56"><UserAutocomplete bind:value={aEmail} placeholder="ค้นหาผู้ใช้ (พิมพ์ชื่อ/อีเมล)" /></div>
               <Button onclick={addAssign}>มอบหมาย</Button>
             </div>
 

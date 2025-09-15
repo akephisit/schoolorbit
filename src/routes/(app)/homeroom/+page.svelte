@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '$lib/components/ui/card';
   import { Input } from '$lib/components/ui/input';
+  import UserAutocomplete from '$lib/components/UserAutocomplete.svelte';
   import { Button } from '$lib/components/ui/button';
 
   type HR = { id: string; classCode: string; email: string; displayName: string };
@@ -53,7 +54,7 @@
       <CardContent class="space-y-3">
         <div class="flex flex-wrap gap-2 items-end">
           <Input class="w-40" placeholder="ชั้น (เช่น ม.6/1)" bind:value={classCode} />
-          <Input class="w-56" placeholder="อีเมลครู" bind:value={teacherEmail} />
+          <div class="w-56"><UserAutocomplete bind:value={teacherEmail} placeholder="ค้นหาครู (พิมพ์ชื่อ/อีเมล)" /></div>
           <Button onclick={add}>เพิ่ม</Button>
         </div>
 

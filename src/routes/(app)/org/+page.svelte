@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '$lib/components/ui/card';
   import { Input } from '$lib/components/ui/input';
+  import UserAutocomplete from '$lib/components/UserAutocomplete.svelte';
   import { Button } from '$lib/components/ui/button';
 
   type OrgUnit = { id: string; code: string; nameTh: string; type: string | null; parentId: string | null };
@@ -129,7 +130,7 @@
             <div class="text-sm text-gray-600">กรุณาเลือกหน่วยงานทางซ้าย</div>
           {:else}
             <div class="flex flex-wrap gap-2 items-end">
-              <Input class="w-56" placeholder="อีเมลบุคลากร" bind:value={mEmail} />
+              <div class="w-56"><UserAutocomplete bind:value={mEmail} placeholder="ค้นหาผู้ใช้ (พิมพ์ชื่อ/อีเมล)" /></div>
               <select class="border rounded px-2 py-2" bind:value={mRole}>
                 <option value="member">สมาชิก</option>
                 <option value="deputy">รองหัวหน้า</option>
