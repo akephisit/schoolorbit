@@ -237,13 +237,14 @@ async function main() {
   const countRes = await sql`SELECT COUNT(*)::int AS c FROM menu_item`;
   const count = countRes[0]?.c ?? 0;
   if (count === 0) {
+    // Seed default menu in Thai
     const items = [
-      { label: 'Dashboard', href: '/dashboard', icon: 'home', requires: null, sort: 0 },
-      { label: 'Classes', href: '/classes', icon: 'book', requires: ['class:read'], sort: 10 },
-      { label: 'Attendance', href: '/attendance', icon: 'calendar', requires: ['attend:read'], sort: 20 },
-      { label: 'Record Attendance', href: '/attendance/mark', icon: 'check', requires: ['attend:write'], sort: 30 },
-      { label: 'Grades', href: '/grades', icon: 'award', requires: ['grade:read'], sort: 40 },
-      { label: 'Users', href: '/users', icon: 'users', requires: ['user:manage'], sort: 50 }
+      { label: 'แดชบอร์ด', href: '/dashboard', icon: 'home', requires: null, sort: 0 },
+      { label: 'ชั้นเรียน', href: '/classes', icon: 'book', requires: ['class:read'], sort: 10 },
+      { label: 'การเข้าเรียน', href: '/attendance', icon: 'calendar', requires: ['attend:read'], sort: 20 },
+      { label: 'บันทึกการเข้าเรียน', href: '/attendance/mark', icon: 'check', requires: ['attend:write'], sort: 30 },
+      { label: 'ผลการเรียน', href: '/grades', icon: 'award', requires: ['grade:read'], sort: 40 },
+      { label: 'ผู้ใช้', href: '/users', icon: 'users', requires: ['user:manage'], sort: 50 }
     ];
     for (const it of items) {
       await sql`
@@ -251,9 +252,22 @@ async function main() {
         VALUES (${it.label}, ${it.href}, ${it.icon}, ${it.requires ? JSON.stringify(it.requires) : null}, ${it.sort}, true)
       `;
     }
-    console.log('✅ Menu items created');
+    console.log('✅ Menu items created (Thai)');
   } else {
-    console.log('ℹ️ Menu already has items; skipped');
+    // Attempt to localize existing default items to Thai by href
+    console.log('ℹ️ Menu already has items; applying Thai labels where applicable');
+    const updates = [
+      { th: 'แดชบอร์ด', href: '/dashboard' },
+      { th: 'ชั้นเรียน', href: '/classes' },
+      { th: 'การเข้าเรียน', href: '/attendance' },
+      { th: 'บันทึกการเข้าเรียน', href: '/attendance/mark' },
+      { th: 'ผลการเรียน', href: '/grades' },
+      { th: 'ผู้ใช้', href: '/users' }
+    ];
+    for (const u of updates) {
+      await sql`UPDATE menu_item SET label = ${u.th} WHERE href = ${u.href}`;
+    }
+    console.log('✅ Thai labels applied to existing menu items');
   }
 
   console.log('\n🎉 Done! Test accounts use password: 12345678');
