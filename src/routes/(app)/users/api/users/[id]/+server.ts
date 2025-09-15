@@ -1,0 +1,38 @@
+import { json, error } from '@sveltejs/kit';
+import type { RequestHandler } from './$types';
+import { db } from '$lib/server/database';
+import { appUser } from '$lib/server/schema';
+import { eq } from 'drizzle-orm';
+
+export const PUT: RequestHandler = async ({ locals, params, request }) => {
+  if (!locals.me?.data?.perms?.includes('user:manage')) {
+    return error(403, 'Forbidden');
+  }
+  const id = params.id;
+  const body = await request.json().catch(() => ({}));
+  const patch: any = {};
+  if (typeof body.email === 'string') patch.email = body.email.trim();
+  if (typeof body.displayName === 'string') patch.displayName = body.displayName.trim();
+  if (typeof body.status === 'string' && ['active', 'inactive', 'suspended'].includes(body.status)) patch.status = body.status;
+
+  if (Object.keys(patch).length === 0) {
+    return error(400, 'ไม่มีข้อมูลที่จะแก้ไข');
+  }
+
+  try {
+    await db.update(appUser).set(patch).where(eq(appUser.id, id));
+  } catch (e) {
+    return error(400, 'อัปเดตไม่สำเร็จ (อีเมลอาจซ้ำ)');
+  }
+  return json({ ok: true });
+};
+
+export const DELETE: RequestHandler = async ({ locals, params }) => {
+  if (!locals.me?.data?.perms?.includes('user:manage')) {
+    return error(403, 'Forbidden');
+  }
+  const id = params.id;
+  await db.delete(appUser).where(eq(appUser.id, id));
+  return new Response(null, { status: 204 });
+};
+
