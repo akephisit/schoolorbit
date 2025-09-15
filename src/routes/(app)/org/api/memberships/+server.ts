@@ -9,7 +9,7 @@ export const GET: RequestHandler = async ({ locals, url }) => {
   const unitId = url.searchParams.get('unitId');
   if (!unitId) return error(400, 'unitId จำเป็น');
   const rows = await db
-    .select({ id: orgMembership.id, userId: orgMembership.userId, roleInUnit: orgMembership.roleInUnit, startDate: orgMembership.startDate, endDate: orgMembership.endDate, displayName: appUser.displayName, email: appUser.email })
+    .select({ id: orgMembership.id, userId: orgMembership.userId, roleInUnit: orgMembership.roleInUnit, displayName: appUser.displayName, email: appUser.email })
     .from(orgMembership)
     .innerJoin(appUser, eq(orgMembership.userId, appUser.id))
     .where(eq(orgMembership.orgUnitId, unitId));
@@ -22,12 +22,9 @@ export const POST: RequestHandler = async ({ locals, request }) => {
   const unitId = (body.unitId || '').trim();
   const userEmail = typeof body.userEmail === 'string' ? body.userEmail.trim() : '';
   const roleInUnit = (body.roleInUnit || 'member') as 'head'|'deputy'|'member';
-  const startDate = body.startDate || null;
-  const endDate = body.endDate || null;
   if (!unitId || !userEmail) return error(400, 'unitId และ userEmail ต้องระบุ');
   const user = await db.select().from(appUser).where(eq(appUser.email, userEmail)).limit(1);
   if (!user.length) return error(400, 'ไม่พบผู้ใช้ตามอีเมล');
-  const ins = await db.insert(orgMembership).values({ orgUnitId: unitId, userId: user[0].id, roleInUnit, startDate, endDate } as any).returning({ id: orgMembership.id });
+  const ins = await db.insert(orgMembership).values({ orgUnitId: unitId, userId: user[0].id, roleInUnit } as any).returning({ id: orgMembership.id });
   return json({ data: { id: ins[0].id } }, { status: 201 });
 };
-

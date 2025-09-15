@@ -4,15 +4,14 @@
   import { Input } from '$lib/components/ui/input';
   import { Button } from '$lib/components/ui/button';
 
-  type HR = { id: string; classCode: string; startDate: string|null; endDate: string|null; email: string; displayName: string };
+  type HR = { id: string; classCode: string; email: string; displayName: string };
 
   let items: HR[] = [];
   let loading = true;
 
   let classCode = '';
   let teacherEmail = '';
-  let startDate = '';
-  let endDate = '';
+  
 
   async function loadAll() {
     const res = await fetch('/homeroom/api/assignments');
@@ -23,9 +22,9 @@
 
   async function add() {
     if (!classCode.trim() || !teacherEmail.trim()) return;
-    const res = await fetch('/homeroom/api/assignments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ classCode: classCode.trim(), teacherEmail: teacherEmail.trim(), startDate: startDate || null, endDate: endDate || null }) });
+    const res = await fetch('/homeroom/api/assignments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ classCode: classCode.trim(), teacherEmail: teacherEmail.trim() }) });
     if (!res.ok) { alert('เพิ่มครูประจำชั้นไม่สำเร็จ'); return; }
-    classCode=''; teacherEmail=''; startDate=''; endDate='';
+    classCode=''; teacherEmail='';
     await loadAll();
   }
 
@@ -55,8 +54,6 @@
         <div class="flex flex-wrap gap-2 items-end">
           <Input class="w-40" placeholder="ชั้น (เช่น ม.6/1)" bind:value={classCode} />
           <Input class="w-56" placeholder="อีเมลครู" bind:value={teacherEmail} />
-          <Input class="w-40" type="date" bind:value={startDate} />
-          <Input class="w-40" type="date" bind:value={endDate} />
           <Button onclick={add}>เพิ่ม</Button>
         </div>
 
@@ -67,7 +64,7 @@
                 <div class="text-sm font-medium">{it.displayName}</div>
                 <div class="text-xs text-gray-500">{it.email}</div>
                 <div class="text-xs text-gray-500">ชั้น: {it.classCode}</div>
-                <div class="text-xs text-gray-500">ช่วงเวลา: {it.startDate || '-'} ถึง {it.endDate || '-'}</div>
+                
               </div>
               <div class="flex items-center gap-2">
                 <Button size="sm" variant="destructive" onclick={() => remove(it.id)}>ลบ</Button>
@@ -82,4 +79,3 @@
     </Card>
   {/if}
 </div>
-

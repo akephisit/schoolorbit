@@ -5,7 +5,7 @@
   import { Button } from '$lib/components/ui/button';
 
   type Position = { id: string; code: string; titleTh: string; category: string | null };
-  type Assign = { id: string; userId: string; positionId: string; startDate: string|null; endDate: string|null; email: string; displayName: string };
+  type Assign = { id: string; userId: string; positionId: string; email: string; displayName: string };
 
   let positions: Position[] = [];
   let selectedPosId: string | null = null;
@@ -20,8 +20,6 @@
 
   // New assignment
   let aEmail = '';
-  let aStart = '';
-  let aEnd = '';
 
   async function loadPositions() {
     const res = await fetch('/positions/api/positions');
@@ -48,9 +46,9 @@
 
   async function addAssign() {
     if (!selectedPosId || !aEmail.trim()) return;
-    const res = await fetch('/positions/api/assignments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ positionId: selectedPosId, userEmail: aEmail.trim(), startDate: aStart || null, endDate: aEnd || null }) });
+    const res = await fetch('/positions/api/assignments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ positionId: selectedPosId, userEmail: aEmail.trim() }) });
     if (!res.ok) { alert('มอบหมายตำแหน่งไม่สำเร็จ'); return; }
-    aEmail=''; aStart=''; aEnd='';
+    aEmail='';
     await loadAssigns();
   }
 
@@ -115,8 +113,6 @@
           {:else}
             <div class="flex flex-wrap gap-2 items-end">
               <Input class="w-56" placeholder="อีเมลบุคลากร" bind:value={aEmail} />
-              <Input class="w-40" type="date" bind:value={aStart} />
-              <Input class="w-40" type="date" bind:value={aEnd} />
               <Button onclick={addAssign}>มอบหมาย</Button>
             </div>
 
@@ -126,7 +122,7 @@
                   <div>
                     <div class="text-sm font-medium">{a.displayName}</div>
                     <div class="text-xs text-gray-500">{a.email}</div>
-                    <div class="text-xs text-gray-500">ช่วงเวลา: {a.startDate || '-'} ถึง {a.endDate || '-'}</div>
+                    
                   </div>
                   <div class="flex items-center gap-2">
                     <Button size="sm" variant="destructive" onclick={() => removeAssign(a.id)}>ยกเลิก</Button>
@@ -143,4 +139,3 @@
     </div>
   {/if}
 </div>
-

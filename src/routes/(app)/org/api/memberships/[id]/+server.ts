@@ -10,8 +10,6 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
   const body = await request.json().catch(() => ({}));
   const patch: any = {};
   if (['head','deputy','member'].includes(body.roleInUnit)) patch.roleInUnit = body.roleInUnit;
-  if (body.startDate !== undefined) patch.startDate = body.startDate;
-  if (body.endDate !== undefined) patch.endDate = body.endDate;
   if (!Object.keys(patch).length) return json({ ok: true });
   await db.update(orgMembership).set(patch).where(eq(orgMembership.id, id));
   return json({ ok: true });
@@ -22,4 +20,3 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
   await db.delete(orgMembership).where(eq(orgMembership.id, params.id));
   return json({ ok: true });
 };
-

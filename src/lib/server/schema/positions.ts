@@ -14,8 +14,6 @@ export const positionAssignment = pgTable('position_assignment', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => appUser.id, { onDelete: 'cascade' }),
   positionId: uuid('position_id').notNull().references(() => position.id, { onDelete: 'cascade' }),
-  startDate: date('start_date'),
-  endDate: date('end_date'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow()
 });
@@ -24,4 +22,3 @@ export type Position = typeof position.$inferSelect;
 export type NewPosition = typeof position.$inferInsert;
 export type PositionAssignment = typeof positionAssignment.$inferSelect;
 export type NewPositionAssignment = typeof positionAssignment.$inferInsert;
-

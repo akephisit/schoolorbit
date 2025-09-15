@@ -5,7 +5,7 @@
   import { Button } from '$lib/components/ui/button';
 
   type OrgUnit = { id: string; code: string; nameTh: string; type: string | null; parentId: string | null };
-  type Member = { id: string; userId: string; roleInUnit: 'head'|'deputy'|'member'; startDate: string|null; endDate: string|null; displayName: string; email: string };
+  type Member = { id: string; userId: string; roleInUnit: 'head'|'deputy'|'member'; displayName: string; email: string };
 
   let units: OrgUnit[] = [];
   let loading = true;
@@ -21,8 +21,6 @@
   // New member
   let mEmail = '';
   let mRole: 'head'|'deputy'|'member' = 'member';
-  let mStart = '';
-  let mEnd = '';
 
   async function loadUnits() {
     const res = await fetch('/org/api/units');
@@ -58,10 +56,10 @@
 
   async function addMember() {
     if (!selectedUnitId || !mEmail.trim()) return;
-    const payload = { unitId: selectedUnitId, userEmail: mEmail.trim(), roleInUnit: mRole, startDate: mStart || null, endDate: mEnd || null };
+    const payload = { unitId: selectedUnitId, userEmail: mEmail.trim(), roleInUnit: mRole };
     const res = await fetch('/org/api/memberships', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     if (!res.ok) { alert('เพิ่มสมาชิกไม่สำเร็จ'); return; }
-    mEmail=''; mRole='member'; mStart=''; mEnd='';
+    mEmail=''; mRole='member';
     await loadMembers();
   }
 
@@ -137,8 +135,6 @@
                 <option value="deputy">รองหัวหน้า</option>
                 <option value="head">หัวหน้าฝ่าย</option>
               </select>
-              <Input class="w-40" type="date" bind:value={mStart} />
-              <Input class="w-40" type="date" bind:value={mEnd} />
               <Button onclick={addMember}>เพิ่มสมาชิก</Button>
             </div>
 
@@ -148,7 +144,7 @@
                   <div>
                     <div class="text-sm font-medium">{m.displayName}</div>
                     <div class="text-xs text-gray-500">{m.email}</div>
-                    <div class="text-xs text-gray-500">ช่วงเวลา: {m.startDate || '-'} ถึง {m.endDate || '-'}</div>
+                    
                   </div>
                   <div class="flex items-center gap-2">
                     <select class="border rounded px-2 py-1" bind:value={m.roleInUnit} on:change={(e) => updateMemberRole(m.id, (e.currentTarget as HTMLSelectElement).value as any)}>
@@ -170,4 +166,3 @@
     </div>
   {/if}
 </div>
-

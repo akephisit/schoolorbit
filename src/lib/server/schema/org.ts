@@ -24,8 +24,6 @@ export const orgMembership = pgTable('org_membership', {
   userId: uuid('user_id').notNull().references(() => appUser.id, { onDelete: 'cascade' }),
   orgUnitId: uuid('org_unit_id').notNull().references(() => orgUnit.id, { onDelete: 'cascade' }),
   roleInUnit: membershipRoleEnum('role_in_unit').notNull().default('member'),
-  startDate: date('start_date'),
-  endDate: date('end_date'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow()
 });
