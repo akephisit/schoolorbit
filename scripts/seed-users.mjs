@@ -1,6 +1,7 @@
 import { neon } from '@neondatabase/serverless';
 import argon2 from 'argon2';
 import { createHash } from 'crypto';
+import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
@@ -54,6 +55,26 @@ function hashNationalId(nationalId) {
   return hasher.digest('hex');
 }
 
+function getEncKey() {
+  const b64 = process.env.NATIONAL_ID_ENC_KEY;
+  if (b64) {
+    try { return Buffer.from(b64, 'base64'); } catch {}
+  }
+  const h = createHash('sha256');
+  h.update('enc-key');
+  h.update(NATIONAL_ID_SALT ?? 'default_salt');
+  return h.digest();
+}
+
+function encryptPII(plaintext) {
+  const key = getEncKey();
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  const ct = Buffer.concat([cipher.update(String(plaintext), 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return [iv.toString('base64'), ct.toString('base64'), tag.toString('base64')].join('.');
+}
+
 async function upsertUser({ email, displayName, passwordHash, status = 'active' }) {
   // Insert user if not exists; return id either way
   const res = await sql`
@@ -67,10 +88,11 @@ async function upsertUser({ email, displayName, passwordHash, status = 'active' 
 
 async function ensurePersonnelProfile({ userId, nationalId, firstName, lastName, position, department }) {
   const nationalIdHash = hashNationalId(nationalId);
+  const nationalIdEnc = encryptPII(nationalId);
   await sql`
-    INSERT INTO personnel_profile (user_id, national_id_hash, first_name, last_name, position, department)
-    VALUES (${userId}, ${nationalIdHash}, ${firstName}, ${lastName}, ${position}, ${department})
-    ON CONFLICT (national_id_hash) DO NOTHING;
+    INSERT INTO personnel_profile (user_id, national_id_hash, national_id_enc, first_name, last_name, position, department)
+    VALUES (${userId}, ${nationalIdHash}, ${nationalIdEnc}, ${firstName}, ${lastName}, ${position}, ${department})
+    ON CONFLICT (national_id_hash) DO UPDATE SET national_id_enc = EXCLUDED.national_id_enc;
   `;
 }
 
@@ -84,10 +106,11 @@ async function ensureStudentProfile({ userId, studentCode, firstName, lastName, 
 
 async function ensureGuardianProfile({ userId, nationalId, firstName, lastName, phoneNumber, relation }) {
   const nationalIdHash = hashNationalId(nationalId);
+  const nationalIdEnc = encryptPII(nationalId);
   await sql`
-    INSERT INTO guardian_profile (user_id, national_id_hash, first_name, last_name, phone_number, relation)
-    VALUES (${userId}, ${nationalIdHash}, ${firstName}, ${lastName}, ${phoneNumber}, ${relation})
-    ON CONFLICT (national_id_hash) DO NOTHING;
+    INSERT INTO guardian_profile (user_id, national_id_hash, national_id_enc, first_name, last_name, phone_number, relation)
+    VALUES (${userId}, ${nationalIdHash}, ${nationalIdEnc}, ${firstName}, ${lastName}, ${phoneNumber}, ${relation})
+    ON CONFLICT (national_id_hash) DO UPDATE SET national_id_enc = EXCLUDED.national_id_enc;
   `;
 }
 
@@ -200,7 +223,8 @@ async function main() {
     ['attend:read', 'Read Attendance'],
     ['attend:write', 'Write Attendance'],
     ['grade:read', 'Read Grades'],
-    ['user:manage', 'Manage Users']
+    ['user:manage', 'Manage Users'],
+    ['pii:view', 'View Sensitive PII']
   ];
 
   const roleIds = {};
