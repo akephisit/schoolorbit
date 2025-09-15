@@ -11,6 +11,14 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
   const name = typeof body.name === 'string' ? body.name.trim() : '';
   // Allow updating name only to keep codes stable
   if (!name) return error(400, 'name ต้องระบุ');
+  // Protect base roles from being renamed
+  const rows = await db.select().from(role).where(eq(role.id, id)).limit(1);
+  if (!rows.length) return error(404, 'ไม่พบบทบาท');
+  const base = new Set(['staff', 'student', 'parent']);
+  // @ts-ignore drizzle type narrow
+  if (base.has(String(rows[0].code))) {
+    return error(403, 'ห้ามแก้ไขชื่อบทบาทพื้นฐานของระบบ');
+  }
   await db.update(role).set({ name }).where(eq(role.id, id));
   return json({ ok: true });
 };
@@ -18,7 +26,14 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
 export const DELETE: RequestHandler = async ({ locals, params }) => {
   if (!locals.me?.data?.perms?.includes('user:manage')) return error(403, 'Forbidden');
   const id = params.id;
+  // Protect base roles from deletion
+  const rows = await db.select().from(role).where(eq(role.id, id)).limit(1);
+  if (!rows.length) return error(404, 'ไม่พบบทบาท');
+  const base = new Set(['staff', 'student', 'parent']);
+  // @ts-ignore drizzle types inference
+  if (base.has(String(rows[0].code))) {
+    return error(403, 'ห้ามลบบทบาทพื้นฐานของระบบ');
+  }
   await db.delete(role).where(eq(role.id, id));
   return json({ ok: true });
 };
-

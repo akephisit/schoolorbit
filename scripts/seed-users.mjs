@@ -58,7 +58,10 @@ function hashNationalId(nationalId) {
 function getEncKey() {
   const b64 = process.env.NATIONAL_ID_ENC_KEY;
   if (b64) {
-    try { return Buffer.from(b64, 'base64'); } catch {}
+    try {
+      const buf = Buffer.from(b64, 'base64');
+      if (buf.length === 32) return buf; // AES-256-GCM requires 32-byte key
+    } catch {}
   }
   const h = createHash('sha256');
   h.update('enc-key');
@@ -118,21 +121,21 @@ async function main() {
   console.log('Starting test data seeding...');
   const passwordHash = await argon2.hash('12345678');
 
-  // Teacher (personnel)
-  const teacher = await upsertUser({
-    email: 'teacher@school.test',
-    displayName: 'อาจารย์สมชาย',
+  // Staff (personnel)
+  const staff = await upsertUser({
+    email: 'staff@school.test',
+    displayName: 'เจ้าหน้าที่สมชาย',
     passwordHash
   });
   await ensurePersonnelProfile({
-    userId: teacher.id,
+    userId: staff.id,
     nationalId: '1234567890123',
     firstName: 'สมชาย',
     lastName: 'ใจดี',
-    position: 'ครู',
-    department: 'คณิตศาสตร์'
+    position: 'เจ้าหน้าที่',
+    department: 'วิชาการ'
   });
-  console.log(`✅ Teacher ready: ${teacher.email}`);
+  console.log(`✅ Staff ready: ${staff.email}`);
 
   // Student
   const student = await upsertUser({
@@ -150,37 +153,21 @@ async function main() {
   });
   console.log(`✅ Student ready: ${student.email}`);
 
-  // Guardian
-  const guardian = await upsertUser({
+  // Parent (guardian)
+  const parent = await upsertUser({
     email: 'parent@school.test',
     displayName: 'ผู้ปกครองสมศรี',
     passwordHash
   });
   await ensureGuardianProfile({
-    userId: guardian.id,
+    userId: parent.id,
     nationalId: '9876543210123',
     firstName: 'สมศรี',
     lastName: 'รักลูก',
     phoneNumber: '081-234-5678',
     relation: 'mother'
   });
-  console.log(`✅ Guardian ready: ${guardian.email}`);
-
-  // Admin (also personnel)
-  const admin = await upsertUser({
-    email: 'admin@school.test',
-    displayName: 'ผู้ดูแลระบบ',
-    passwordHash
-  });
-  await ensurePersonnelProfile({
-    userId: admin.id,
-    nationalId: '5555555555555',
-    firstName: 'ผู้ดูแล',
-    lastName: 'ระบบ',
-    position: 'ผู้ดูแลระบบ',
-    department: 'IT'
-  });
-  console.log(`✅ Admin ready: ${admin.email}`);
+  console.log(`✅ Parent ready: ${parent.email}`);
 
   // ---- RBAC ----
   console.log('\nSeeding RBAC (roles, permissions, mappings)...');
@@ -213,10 +200,9 @@ async function main() {
 
   // Define roles and permissions
   const roleDefs = [
-    ['admin', 'Administrator'],
-    ['teacher', 'Teacher'],
-    ['student', 'Student'],
-    ['guardian', 'Guardian']
+    ['staff', 'บุคลากร'],
+    ['student', 'นักเรียน'],
+    ['parent', 'ผู้ปกครอง']
   ];
   const permDefs = [
     ['class:read', 'Read Classes'],
@@ -224,7 +210,11 @@ async function main() {
     ['attend:write', 'Write Attendance'],
     ['grade:read', 'Read Grades'],
     ['user:manage', 'Manage Users'],
-    ['pii:view', 'View Sensitive PII']
+    ['pii:view', 'View Sensitive PII'],
+    ['finance:view', 'View Finance'],
+    ['finance:manage', 'Manage Finance'],
+    ['academics:view', 'View Academics'],
+    ['academics:manage', 'Manage Academics']
   ];
 
   const roleIds = {};
@@ -238,10 +228,9 @@ async function main() {
 
   // Map role -> permissions
   const grants = {
-    admin: permDefs.map(([c]) => c),
-    teacher: ['class:read', 'attend:read', 'attend:write', 'grade:read'],
-    student: ['class:read', 'grade:read'],
-    guardian: ['class:read', 'grade:read']
+    staff: permDefs.map(([c]) => c), // staff gets all default perms in dev seed
+    student: ['class:read', 'grade:read', 'attend:read'],
+    parent: ['class:read', 'grade:read']
   };
   for (const [rCode, perms] of Object.entries(grants)) {
     for (const pCode of perms) {
@@ -250,10 +239,9 @@ async function main() {
   }
 
   // Assign roles to users
-  await ensureUserRole(teacher.id, roleIds.teacher);
+  await ensureUserRole(staff.id, roleIds.staff);
   await ensureUserRole(student.id, roleIds.student);
-  await ensureUserRole(guardian.id, roleIds.guardian);
-  await ensureUserRole(admin.id, roleIds.admin);
+  await ensureUserRole(parent.id, roleIds.parent);
   console.log('✅ RBAC seeded');
 
   // ---- Menu items ----
@@ -272,7 +260,9 @@ async function main() {
       { label: 'บทบาทและสิทธิ์', href: '/roles', icon: 'settings', requires: ['user:manage'], sort: 55 },
       { label: 'หน่วยงาน/ฝ่าย', href: '/org', icon: 'building', requires: ['user:manage'], sort: 60 },
       { label: 'ตำแหน่ง', href: '/positions', icon: 'briefcase', requires: ['user:manage'], sort: 70 },
-      { label: 'ครูประจำชั้น', href: '/homeroom', icon: 'idcard', requires: ['user:manage'], sort: 80 }
+      { label: 'ครูประจำชั้น', href: '/homeroom', icon: 'idcard', requires: ['academics:manage'], sort: 80 },
+      { label: 'การเงิน', href: '/finance', icon: 'briefcase', requires: ['finance:view'], sort: 90 },
+      { label: 'วิชาการ', href: '/academics', icon: 'book', requires: ['academics:view'], sort: 100 }
     ];
     for (const it of items) {
       await sql`
@@ -300,18 +290,20 @@ async function main() {
       await sql`UPDATE menu_item SET label = ${u.th} WHERE href = ${u.href}`;
     }
     // Ensure newly added admin menus exist
-    const ensureMenu = async (label, href, icon, sort) => {
+    const ensureMenu = async (label, href, icon, sort, perms = ['user:manage']) => {
       const exists = await sql`SELECT 1 FROM menu_item WHERE href = ${href} LIMIT 1`;
       if (!exists.length) {
-        await sql`INSERT INTO menu_item (label, href, icon, required_permissions, sort_order, is_active) VALUES (${label}, ${href}, ${icon}, ${JSON.stringify(['user:manage'])}, ${sort}, true)`;
+        await sql`INSERT INTO menu_item (label, href, icon, required_permissions, sort_order, is_active) VALUES (${label}, ${href}, ${icon}, ${JSON.stringify(perms)}, ${sort}, true)`;
       } else {
-        await sql`UPDATE menu_item SET label = ${label}, icon = ${icon}, required_permissions = ${JSON.stringify(['user:manage'])}, sort_order = ${sort}, is_active = true WHERE href = ${href}`;
+        await sql`UPDATE menu_item SET label = ${label}, icon = ${icon}, required_permissions = ${JSON.stringify(perms)}, sort_order = ${sort}, is_active = true WHERE href = ${href}`;
       }
     };
-    await ensureMenu('บทบาทและสิทธิ์', '/roles', 'settings', 55);
-    await ensureMenu('หน่วยงาน/ฝ่าย', '/org', 'building', 60);
-    await ensureMenu('ตำแหน่ง', '/positions', 'briefcase', 70);
-    await ensureMenu('ครูประจำชั้น', '/homeroom', 'idcard', 80);
+    await ensureMenu('บทบาทและสิทธิ์', '/roles', 'settings', 55, ['user:manage']);
+    await ensureMenu('หน่วยงาน/ฝ่าย', '/org', 'building', 60, ['user:manage']);
+    await ensureMenu('ตำแหน่ง', '/positions', 'briefcase', 70, ['user:manage']);
+    await ensureMenu('ครูประจำชั้น', '/homeroom', 'idcard', 80, ['academics:manage']);
+    await ensureMenu('การเงิน', '/finance', 'briefcase', 90, ['finance:view']);
+    await ensureMenu('วิชาการ', '/academics', 'book', 100, ['academics:view']);
     console.log('✅ Thai labels applied to existing menu items');
   }
 
@@ -356,8 +348,7 @@ async function main() {
     // unique on (org_unit_id, user_id)
     await sql`INSERT INTO org_membership (user_id, org_unit_id, role_in_unit) VALUES (${uid}, ${oid}, ${role}) ON CONFLICT (org_unit_id, user_id) DO UPDATE SET role_in_unit = EXCLUDED.role_in_unit`;
   };
-  await insMembership('admin@school.test', 'ACADEMIC', 'head');
-  await insMembership('teacher@school.test', 'ACADEMIC', 'member');
+  await insMembership('staff@school.test', 'ACADEMIC', 'member');
 
   // Position assignments (no period)
   const insPosition = async (email, posCode) => {
@@ -368,8 +359,7 @@ async function main() {
     if (!pid) return;
     await sql`INSERT INTO position_assignment (user_id, position_id) VALUES (${uid}, ${pid}) ON CONFLICT (user_id, position_id) DO NOTHING`;
   };
-  await insPosition('admin@school.test', 'DIRECTOR');
-  await insPosition('teacher@school.test', 'TEACHER');
+  await insPosition('staff@school.test', 'STAFF');
 
   // Homeroom assignment (no period)
   const insHomeroom = async (email, classCode) => {
@@ -379,7 +369,7 @@ async function main() {
     // one homeroom per class (class_code unique)
     await sql`INSERT INTO homeroom_assignment (teacher_id, class_code) VALUES (${uid}, ${classCode}) ON CONFLICT (class_code) DO UPDATE SET teacher_id = EXCLUDED.teacher_id`;
   };
-  await insHomeroom('teacher@school.test', 'ม.6/1');
+  await insHomeroom('staff@school.test', 'ม.6/1');
 
   console.log('✅ Seeded org units, positions, and sample assignments');
 

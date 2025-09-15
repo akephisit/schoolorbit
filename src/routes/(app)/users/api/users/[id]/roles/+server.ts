@@ -10,7 +10,10 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
   }
   const id = params.id;
   const body = await request.json().catch(() => ({}));
-  const rolesInput: string[] = Array.isArray(body.roles) ? body.roles : [];
+  let rolesInput: string[] = Array.isArray(body.roles) ? body.roles : [];
+  // Enforce fixed roles set
+  const allowed = new Set(['staff', 'student', 'parent']);
+  rolesInput = rolesInput.filter((r) => allowed.has(r));
 
   // resolve codes
   const rws = rolesInput.length ? await db.select().from(role).where(inArray(role.code, rolesInput)) : [];
@@ -22,4 +25,3 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
 
   return json({ ok: true, roles: rws.map(r => r.code) });
 };
-

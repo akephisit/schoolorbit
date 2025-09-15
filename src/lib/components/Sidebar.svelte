@@ -137,13 +137,11 @@
                             {$page.data.user?.displayName || 'ผู้ใช้'}
                         </div>
                         <div class="text-xs opacity-70">
-                            {#if $page.data.roles?.includes('admin')}
-                                ผู้ดูแลระบบ
-                            {:else if $page.data.roles?.includes('teacher')}
-                                ครู
+                            {#if $page.data.roles?.includes('staff')}
+                                บุคลากร
                             {:else if $page.data.roles?.includes('student')}
                                 นักเรียน
-                            {:else if $page.data.roles?.includes('guardian')}
+                            {:else if $page.data.roles?.includes('parent')}
                                 ผู้ปกครอง
                             {:else}
                                 ผู้ใช้

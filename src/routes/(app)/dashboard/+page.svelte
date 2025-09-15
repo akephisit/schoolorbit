@@ -65,8 +65,7 @@
 
 	function getUserTypeTitle() {
 		const roles = $page.data.roles || [];
-		if (roles.includes('admin')) return 'แดชบอร์ดผู้ดูแลระบบ';
-		if (roles.includes('teacher')) return 'แดชบอร์ดครู';
+		if (roles.includes('staff')) return 'แดชบอร์ดบุคลากร';
 		if (roles.includes('student')) return 'แดชบอร์ดนักเรียน';
 		if (roles.includes('parent')) return 'แดชบอร์ดผู้ปกครอง';
 		return 'แดชบอร์ด';
@@ -167,10 +166,8 @@
 		<CardHeader>
 			<CardTitle>ยินดีต้อนรับ, {$page.data.user?.displayName || 'ผู้ใช้'}!</CardTitle>
 			<CardDescription>
-				{#if $page.data.roles?.includes('admin')}
-					คุณสามารถจัดการระบบและดูข้อมูลทั้งหมดได้จากเมนูทางด้านซ้าย
-				{:else if $page.data.roles?.includes('teacher')}
-					คุณสามารถจัดการชั้นเรียน บันทึกการเข้าเรียน และให้คะแนนนักเรียนได้
+				{#if $page.data.roles?.includes('staff')}
+					คุณสามารถเข้าถึงเมนูที่เกี่ยวกับงานบุคลากร เช่น วิชาการ การเงิน การเข้าเรียน หรือการจัดการผู้ใช้ ตามสิทธิ์ที่ได้รับ
 				{:else if $page.data.roles?.includes('student')}
 					คุณสามารถดูตารางเรียน เช็คการเข้าเรียน และผลการเรียนได้
 				{:else if $page.data.roles?.includes('parent')}

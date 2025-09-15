@@ -98,7 +98,7 @@
       await loadRoles();
       toast.success('อัปเดตชื่อบทบาทสำเร็จ');
     } catch (e) {
-      toast.error('บันทึกชื่อบทบาทไม่สำเร็จ');
+      toast.error('บันทึกชื่อบทบาทไม่สำเร็จ (บทบาทพื้นฐานแก้ไขไม่ได้)');
     } finally {
       savingRole[id] = false;
     }
@@ -165,14 +165,10 @@
       <Card class="lg:col-span-1">
         <CardHeader>
           <CardTitle>บทบาท</CardTitle>
-          <CardDescription>สร้าง/แก้ไข/ลบบทบาท</CardDescription>
+          <CardDescription>บทบาทถูกกำหนดตายตัว: staff / student / parent</CardDescription>
         </CardHeader>
         <CardContent class="space-y-4">
-          <div class="flex gap-2">
-            <Input placeholder="code (เช่น admin)" bind:value={newRoleCode} />
-            <Input placeholder="ชื่อบทบาท (ไทย)" bind:value={newRoleName} />
-            <Button onclick={createRole} disabled={creatingRole}>{creatingRole ? 'กำลังสร้าง...' : 'เพิ่ม'}</Button>
-          </div>
+          <div class="text-sm text-gray-600">ระบบปิดการสร้างบทบาทใหม่ หากต้องการกำหนดการเข้าถึงให้ละเอียด ใช้การกำหนดสิทธิ์ (permissions) กับบทบาทที่มีอยู่</div>
 
           <div class="divide-y border rounded">
             {#each roles as r}
@@ -180,10 +176,14 @@
                 <input type="radio" name="selRole" checked={selectedRoleId === r.id} on:change={() => { selectedRoleId = r.id; loadRolePerms(r.id); }} />
                 <div class="flex-1">
                   <div class="text-xs text-gray-500">{r.code}</div>
-                  <div class="flex gap-2 mt-1">
-                    <Input class="flex-1" bind:value={editingName[r.id]} placeholder={r.name} />
-                    <Button size="sm" onclick={() => updateRoleName(r.id)} disabled={!!savingRole[r.id]}>{savingRole[r.id] ? '...' : 'บันทึก'}</Button>
-                    <Button size="sm" variant="destructive" onclick={() => deleteRole(r.id)}>ลบ</Button>
+                  <div class="flex gap-2 mt-1 items-center">
+                    {#if ['staff','student','parent'].includes(r.code)}
+                      <Input class="flex-1" value={r.name} disabled />
+                      <span class="text-xs text-gray-500">ชื่อบทบาทพื้นฐาน (กำหนดเป็นภาษาไทย)</span>
+                    {:else}
+                      <Input class="flex-1" bind:value={editingName[r.id]} placeholder={r.name} />
+                      <Button size="sm" onclick={() => updateRoleName(r.id)} disabled={!!savingRole[r.id]}>{savingRole[r.id] ? '...' : 'บันทึก'}</Button>
+                    {/if}
                   </div>
                 </div>
               </div>

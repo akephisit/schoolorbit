@@ -54,7 +54,10 @@ export const POST: RequestHandler = async ({ locals, request }) => {
   const email = typeof body.email === 'string' ? body.email.trim() : null;
   const displayName = typeof body.displayName === 'string' ? body.displayName.trim() : null;
   const password = typeof body.password === 'string' ? body.password : null;
-  const rolesInput: string[] = Array.isArray(body.roles) ? body.roles : [];
+  let rolesInput: string[] = Array.isArray(body.roles) ? body.roles : [];
+  // Enforce fixed roles set
+  const allowed = new Set(['staff', 'student', 'parent']);
+  rolesInput = rolesInput.filter((r) => allowed.has(r));
   const status = (['active', 'inactive', 'suspended'] as const).includes(body.status)
     ? body.status
     : 'active';
@@ -92,4 +95,3 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 
   return json({ data: { id: inserted.id } }, { status: 201 });
 };
-

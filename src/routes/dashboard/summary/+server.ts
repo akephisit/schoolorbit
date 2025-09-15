@@ -24,22 +24,19 @@ export const GET: RequestHandler = async ({ locals }) => {
 	
 	let cards: DashboardCard[];
 	
-	switch (userType) {
-		case 'admin':
-			cards = getAdminCards();
-			break;
-		case 'teacher':
-			cards = getTeacherCards();
-			break;
-		case 'student':
-			cards = getStudentCards();
-			break;
-		case 'parent':
-			cards = getGuardianCards();
-			break;
-		default:
-			cards = [];
-	}
+		switch (userType) {
+			case 'staff':
+				cards = getStaffCards();
+				break;
+			case 'student':
+				cards = getStudentCards();
+				break;
+			case 'parent':
+				cards = getParentCards();
+				break;
+			default:
+				cards = [];
+		}
 
 	return json({
 		data: cards
@@ -47,14 +44,13 @@ export const GET: RequestHandler = async ({ locals }) => {
 };
 
 function getUserType(roles: string[]): string {
-	if (roles.includes('admin')) return 'admin';
-	if (roles.includes('teacher')) return 'teacher';
+	if (roles.includes('staff')) return 'staff';
 	if (roles.includes('student')) return 'student';
 	if (roles.includes('parent')) return 'parent';
 	return 'unknown';
 }
 
-function getAdminCards(): DashboardCard[] {
+function getStaffCards(): DashboardCard[] {
 	return [
 		{
 			title: 'Total Users',
@@ -83,39 +79,6 @@ function getAdminCards(): DashboardCard[] {
 			description: 'All systems operational',
 			icon: 'activity',
 			color: 'emerald'
-		}
-	];
-}
-
-function getTeacherCards(): DashboardCard[] {
-	return [
-		{
-			title: 'My Classes',
-			value: '3',
-			description: 'Classes assigned to you',
-			icon: 'book',
-			color: 'blue'
-		},
-		{
-			title: "Today's Attendance",
-			value: '87/92',
-			description: 'Students present today',
-			icon: 'check',
-			color: 'green'
-		},
-		{
-			title: 'Pending Grades',
-			value: '12',
-			description: 'Assignments to grade',
-			icon: 'award',
-			color: 'orange'
-		},
-		{
-			title: 'Class Average',
-			value: 'B+',
-			description: 'Overall class performance',
-			icon: 'trending-up',
-			color: 'purple'
 		}
 	];
 }
@@ -153,7 +116,7 @@ function getStudentCards(): DashboardCard[] {
 	];
 }
 
-function getGuardianCards(): DashboardCard[] {
+function getParentCards(): DashboardCard[] {
 	return [
 		{
 			title: 'Children',
