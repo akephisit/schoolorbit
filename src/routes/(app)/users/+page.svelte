@@ -72,12 +72,8 @@
   let editPassword: Record<string, string> = {};
   let editRoles: Record<string, Set<string>> = {};
 
-  const roleLabel: Record<string, string> = {
-    admin: 'ผู้ดูแลระบบ',
-    teacher: 'ครู',
-    student: 'นักเรียน',
-    guardian: 'ผู้ปกครอง'
-  };
+  // Map role code -> display name from API
+  $: roleNameMap = new Map(roles.map(r => [r.code, r.name] as const));
 
   const statusLabel: Record<string, string> = {
     active: 'ใช้งาน',
@@ -149,7 +145,7 @@
           {#each roles as r}
             <label class="flex items-center gap-1 text-sm">
               <input type="checkbox" checked={cRoles.has(r.code)} onchange={(e) => { e.currentTarget?.checked ? cRoles.add(r.code) : cRoles.delete(r.code); cRoles = new Set(cRoles); }} />
-              {roleLabel[r.code] || r.code}
+              {r.name}
             </label>
           {/each}
         </div>
@@ -213,7 +209,7 @@
                       {#each roles as r}
                         <label class="flex items-center gap-1 text-sm">
                           <input type="checkbox" checked={editRoles[u.id]?.has(r.code)} onchange={(e) => { const set = editRoles[u.id] || new Set<string>(); if (e.currentTarget?.checked) set.add(r.code); else set.delete(r.code); editRoles[u.id] = new Set(set); }} />
-                          {roleLabel[r.code] || r.code}
+                          {r.name}
                         </label>
                       {/each}
                     </div>
@@ -221,7 +217,7 @@
                       <Input placeholder="ตั้งรหัสผ่านใหม่ (>=8)" type="password" bind:value={editPassword[u.id]} />
                     </div>
                   {:else}
-                    <span class="text-sm">{u.roles.map((c) => roleLabel[c] || c).join(', ')}</span>
+                    <span class="text-sm">{u.roles.map((c) => roleNameMap.get(c) || c).join(', ')}</span>
                   {/if}
                 </TableCell>
                 <TableCell class="text-right space-x-2">
