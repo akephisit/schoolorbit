@@ -127,7 +127,7 @@
       role="button"
       tabindex="0"
       aria-label="Close mobile menu"
-    />
+    ></div>
   {/if}
 
   <div class="flex">
@@ -311,4 +311,3 @@
     <div class="h-16 lg:hidden"></div>
   {/if}
 </div>
-
