@@ -119,4 +119,12 @@
     @apply bg-background text-foreground;
     font-family: 'Kanit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
   }
+
+  /* Ensure Kanit font is used for notifications */
+  .toaster .sonner-toast,
+  .toaster .sonner-toast-content,
+  .toaster .sonner-toast-title,
+  .toaster .sonner-toast-description {
+    font-family: 'Kanit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol' !important;
+  }
 }

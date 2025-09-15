@@ -19,6 +19,7 @@
 		LogOut
 	} from '@lucide/svelte';
 	import { goto } from '$app/navigation';
+    import { toast } from 'svelte-sonner';
 
 	export let userPermissions: string[] = [];
 	
@@ -49,12 +50,12 @@
 
 	async function handleLogout() {
 		try {
-			const response = await fetch('/auth/logout', {
-				method: 'POST'
-			});
+			await fetch('/auth/logout', { method: 'POST' });
+			toast.success('ออกจากระบบสำเร็จ');
 			goto('/login/personnel');
 		} catch (error) {
 			console.error('Logout failed:', error);
+			toast.error('เกิดข้อผิดพลาดในการออกจากระบบ');
 			// Still redirect even if logout call fails
 			goto('/login/personnel');
 		}

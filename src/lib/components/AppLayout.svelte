@@ -6,6 +6,7 @@
   import { page } from '$app/stores';
   import { onMount } from 'svelte';
   import { fetchMenu, type MenuItem } from '$lib/menu';
+  import { toast } from 'svelte-sonner';
   import {
     Home,
     Book,
@@ -69,6 +70,7 @@
   async function handleLogout() {
     try {
       await fetch('/auth/logout', { method: 'POST' });
+      toast.success('ออกจากระบบสำเร็จ');
     } finally {
       goto('/login/personnel');
     }

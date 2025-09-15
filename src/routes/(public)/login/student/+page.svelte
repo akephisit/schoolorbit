@@ -5,6 +5,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '$lib/components/ui/card';
+	import { toast } from 'svelte-sonner';
 
 	let studentCode = '';
 	let password = '';
@@ -39,9 +40,11 @@
 			}
 
 			// Redirect to dashboard on successful login
+			toast.success('เข้าสู่ระบบสำเร็จ');
 			goto('/dashboard');
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'การเข้าสู่ระบบล้มเหลว';
+			toast.error(error);
 		} finally {
 			loading = false;
 		}

@@ -4,6 +4,7 @@
   import { Input } from '$lib/components/ui/input';
   import { Button } from '$lib/components/ui/button';
   import { page } from '$app/stores';
+  import { toast } from 'svelte-sonner';
 
   type Role = { id: string; code: string; name: string };
   type Perm = { id: string; code: string; name: string };
@@ -79,8 +80,9 @@
       if (!res.ok) throw new Error(await res.text());
       newRoleCode = ''; newRoleName = '';
       await loadRoles();
+      toast.success('สร้างบทบาทสำเร็จ');
     } catch (e) {
-      alert('สร้างบทบาทไม่สำเร็จ');
+      toast.error('สร้างบทบาทไม่สำเร็จ');
     } finally {
       creatingRole = false;
     }
@@ -94,8 +96,9 @@
       const res = await fetch(`/roles/api/roles/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
       if (!res.ok) throw new Error(await res.text());
       await loadRoles();
+      toast.success('อัปเดตชื่อบทบาทสำเร็จ');
     } catch (e) {
-      alert('บันทึกชื่อบทบาทไม่สำเร็จ');
+      toast.error('บันทึกชื่อบทบาทไม่สำเร็จ');
     } finally {
       savingRole[id] = false;
     }
@@ -104,9 +107,10 @@
   async function deleteRole(id: string) {
     if (!confirm('ลบบทบาทนี้หรือไม่?')) return;
     const res = await fetch(`/roles/api/roles/${id}`, { method: 'DELETE' });
-    if (!res.ok) { alert('ลบบทบาทไม่สำเร็จ'); return; }
+    if (!res.ok) { toast.error('ลบบทบาทไม่สำเร็จ'); return; }
     if (selectedRoleId === id) selectedRoleId = null;
     await loadRoles();
+    toast.success('ลบบทบาทสำเร็จ');
   }
 
   async function createPerm() {
@@ -117,8 +121,9 @@
       if (!res.ok) throw new Error(await res.text());
       newPermCode = ''; newPermName = '';
       await loadPerms();
+      toast.success('เพิ่มสิทธิ์สำเร็จ');
     } catch (e) {
-      alert('สร้างสิทธิ์ไม่สำเร็จ');
+      toast.error('สร้างสิทธิ์ไม่สำเร็จ');
     } finally {
       creatingPerm = false;
     }
@@ -132,9 +137,11 @@
     rolePerms = next;
     const res = await fetch(`/roles/api/roles/${selectedRoleId}/permissions`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ permissions: Array.from(next) }) });
     if (!res.ok) {
-      alert('บันทึกสิทธิ์ไม่สำเร็จ');
+      toast.error('บันทึกสิทธิ์ไม่สำเร็จ');
       // reload actual from server
       await loadRolePerms(selectedRoleId);
+    } else {
+      toast.success('บันทึกสิทธิ์สำเร็จ');
     }
   }
 </script>
