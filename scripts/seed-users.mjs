@@ -244,7 +244,8 @@ async function main() {
       { label: 'การเข้าเรียน', href: '/attendance', icon: 'calendar', requires: ['attend:read'], sort: 20 },
       { label: 'บันทึกการเข้าเรียน', href: '/attendance/mark', icon: 'check', requires: ['attend:write'], sort: 30 },
       { label: 'ผลการเรียน', href: '/grades', icon: 'award', requires: ['grade:read'], sort: 40 },
-      { label: 'ผู้ใช้', href: '/users', icon: 'users', requires: ['user:manage'], sort: 50 }
+      { label: 'ผู้ใช้', href: '/users', icon: 'users', requires: ['user:manage'], sort: 50 },
+      { label: 'บทบาทและสิทธิ์', href: '/roles', icon: 'settings', requires: ['user:manage'], sort: 55 }
     ];
     for (const it of items) {
       await sql`
@@ -266,6 +267,17 @@ async function main() {
     ];
     for (const u of updates) {
       await sql`UPDATE menu_item SET label = ${u.th} WHERE href = ${u.href}`;
+    }
+    // Ensure roles management menu exists
+    const rolesMenu = await sql`SELECT 1 FROM menu_item WHERE href = ${'/roles'} LIMIT 1`;
+    if (!rolesMenu.length) {
+      await sql`
+        INSERT INTO menu_item (label, href, icon, required_permissions, sort_order, is_active)
+        VALUES (${'บทบาทและสิทธิ์'}, ${'/roles'}, ${'settings'}, ${JSON.stringify(['user:manage'])}, ${55}, true)
+      `;
+    } else {
+      // If exists, make sure label is Thai
+      await sql`UPDATE menu_item SET label = ${'บทบาทและสิทธิ์'} WHERE href = ${'/roles'}`;
     }
     console.log('✅ Thai labels applied to existing menu items');
   }

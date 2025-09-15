@@ -10,6 +10,7 @@
 		CheckCircle,
 		Award,
 		Users,
+		Settings,
 		Menu,
 		X,
 		LogOut
@@ -28,7 +29,8 @@
 		calendar: Calendar,
 		check: CheckCircle,
 		award: Award,
-		users: Users
+		users: Users,
+		settings: Settings
 	};
 
 	onMount(async () => {
