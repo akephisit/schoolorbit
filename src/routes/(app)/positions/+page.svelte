@@ -4,12 +4,14 @@
   import { Input } from '$lib/components/ui/input';
   import UserAutocomplete from '$lib/components/UserAutocomplete.svelte';
   import { Button } from '$lib/components/ui/button';
+  import { RadioGroup, RadioGroupItem } from '$lib/components/ui/radio-group';
+  import { Label } from '$lib/components/ui/label';
 
   type Position = { id: string; code: string; titleTh: string; category: string | null };
   type Assign = { id: string; userId: string; positionId: string; email: string; displayName: string };
 
   let positions: Position[] = [];
-  let selectedPosId: string | null = null;
+  let selectedPosId: string | undefined = undefined;
   let assigns: Assign[] = [];
   let loading = true;
 
@@ -86,20 +88,21 @@
             <Button onclick={createPosition} disabled={creating}>{creating ? 'กำลังเพิ่ม...' : 'เพิ่ม'}</Button>
           </div>
 
-          <div class="border rounded divide-y max-h-[400px] overflow-auto">
+          <RadioGroup bind:value={selectedPosId} class="border rounded divide-y max-h-[400px] overflow-auto">
             {#each positions as p}
-              <label class="p-2 flex items-center gap-2 {selectedPosId === p.id ? 'bg-gray-50' : ''}">
-                <input type="radio" name="selPos" checked={selectedPosId === p.id} on:change={() => { selectedPosId = p.id; loadAssigns(); }} />
+              <div class="p-2 flex items-center gap-2 {selectedPosId === p.id ? 'bg-gray-50' : ''}">
+                <RadioGroupItem value={p.id} id={`pos-${p.id}`} />
+                <Label for={`pos-${p.id}`} class="sr-only">เลือก {p.titleTh}</Label>
                 <div>
                   <div class="text-sm font-medium">{p.titleTh}</div>
                   <div class="text-xs text-gray-500">{p.code}{p.category ? ` • ${p.category}` : ''}</div>
                 </div>
-              </label>
+              </div>
             {/each}
             {#if positions.length === 0}
               <div class="p-3 text-sm text-gray-500">ยังไม่มีตำแหน่ง</div>
             {/if}
-          </div>
+          </RadioGroup>
         </CardContent>
       </Card>
 

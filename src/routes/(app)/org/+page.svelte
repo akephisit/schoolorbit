@@ -4,14 +4,18 @@
   import { Input } from '$lib/components/ui/input';
   import UserAutocomplete from '$lib/components/UserAutocomplete.svelte';
   import { Button } from '$lib/components/ui/button';
+  import { RadioGroup, RadioGroupItem } from '$lib/components/ui/radio-group';
+  import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select';
+  import { Label } from '$lib/components/ui/label';
 
   type OrgUnit = { id: string; code: string; nameTh: string; type: string | null; parentId: string | null };
   type Member = { id: string; userId: string; roleInUnit: 'head'|'deputy'|'member'; displayName: string; email: string };
 
   let units: OrgUnit[] = [];
   let loading = true;
-  let selectedUnitId: string | null = null;
+  let selectedUnitId: string | undefined = undefined;
   let members: Member[] = [];
+  let mRoleSel: Record<string, 'head'|'deputy'|'member'> = {};
 
   // New unit
   let uCode = '';
@@ -28,7 +32,7 @@
     if (res.ok) {
       const data = await res.json();
       units = data.data;
-      if (selectedUnitId && !units.find(u => u.id === selectedUnitId)) selectedUnitId = null;
+      if (selectedUnitId && !units.find(u => u.id === selectedUnitId)) selectedUnitId = undefined;
       if (!selectedUnitId && units.length) selectedUnitId = units[0].id;
       if (selectedUnitId) await loadMembers();
     }
@@ -37,10 +41,27 @@
   async function loadMembers() {
     if (!selectedUnitId) { members = []; return; }
     const res = await fetch(`/org/api/memberships?unitId=${selectedUnitId}`);
-    if (res.ok) { const data = await res.json(); members = data.data; }
+    if (res.ok) {
+      const data = await res.json();
+      members = data.data as Member[];
+      // initialize select values per member
+      for (const m of members) {
+        if (!mRoleSel[m.id]) mRoleSel[m.id] = m.roleInUnit;
+      }
+    }
   }
 
   onMount(async () => { loading = true; await loadUnits(); loading = false; });
+
+  // Update member role when selection changes
+  $: if (members) {
+    for (const m of members) {
+      const next = mRoleSel[m.id];
+      if (next && next !== m.roleInUnit) {
+        updateMemberRole(m.id, next);
+      }
+    }
+  }
 
   async function createUnit() {
     if (!uCode.trim() || !uName.trim()) return;
@@ -103,20 +124,21 @@
             <Button onclick={createUnit} disabled={creating}>{creating ? 'กำลังเพิ่ม...' : 'เพิ่ม'}</Button>
           </div>
 
-          <div class="border rounded divide-y max-h-[400px] overflow-auto">
+          <RadioGroup bind:value={selectedUnitId} class="border rounded divide-y max-h-[400px] overflow-auto">
             {#each units as u}
-              <label class="p-2 flex items-center gap-2 {selectedUnitId === u.id ? 'bg-gray-50' : ''}">
-                <input type="radio" name="selUnit" checked={selectedUnitId === u.id} on:change={() => { selectedUnitId = u.id; loadMembers(); }} />
+              <div class="p-2 flex items-center gap-2 {selectedUnitId === u.id ? 'bg-gray-50' : ''}">
+                <RadioGroupItem value={u.id} id={`unit-${u.id}`} />
+                <Label for={`unit-${u.id}`} class="sr-only">เลือก {u.nameTh}</Label>
                 <div>
                   <div class="text-sm font-medium">{u.nameTh}</div>
                   <div class="text-xs text-gray-500">{u.code}{u.type ? ` • ${u.type}` : ''}</div>
                 </div>
-              </label>
+              </div>
             {/each}
             {#if units.length === 0}
               <div class="p-3 text-sm text-gray-500">ยังไม่มีหน่วยงาน</div>
             {/if}
-          </div>
+          </RadioGroup>
         </CardContent>
       </Card>
 
@@ -131,11 +153,14 @@
           {:else}
             <div class="flex flex-wrap gap-2 items-end">
               <div class="w-56"><UserAutocomplete bind:value={mEmail} placeholder="ค้นหาผู้ใช้ (พิมพ์ชื่อ/อีเมล)" /></div>
-              <select class="border rounded px-2 py-2" bind:value={mRole}>
-                <option value="member">สมาชิก</option>
-                <option value="deputy">รองหัวหน้า</option>
-                <option value="head">หัวหน้าฝ่าย</option>
-              </select>
+              <Select type="single" bind:value={mRole}>
+                <SelectTrigger>{mRole === 'head' ? 'หัวหน้าฝ่าย' : mRole === 'deputy' ? 'รองหัวหน้า' : 'สมาชิก'}</SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="member">สมาชิก</SelectItem>
+                  <SelectItem value="deputy">รองหัวหน้า</SelectItem>
+                  <SelectItem value="head">หัวหน้าฝ่าย</SelectItem>
+                </SelectContent>
+              </Select>
               <Button onclick={addMember}>เพิ่มสมาชิก</Button>
             </div>
 
@@ -148,11 +173,14 @@
                     
                   </div>
                   <div class="flex items-center gap-2">
-                    <select class="border rounded px-2 py-1" bind:value={m.roleInUnit} on:change={(e) => updateMemberRole(m.id, (e.currentTarget as HTMLSelectElement).value as any)}>
-                      <option value="member">สมาชิก</option>
-                      <option value="deputy">รองหัวหน้า</option>
-                      <option value="head">หัวหน้าฝ่าย</option>
-                    </select>
+                    <Select type="single" bind:value={mRoleSel[m.id]}>
+                      <SelectTrigger>{mRoleSel[m.id] === 'head' ? 'หัวหน้าฝ่าย' : mRoleSel[m.id] === 'deputy' ? 'รองหัวหน้า' : 'สมาชิก'}</SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="member">สมาชิก</SelectItem>
+                        <SelectItem value="deputy">รองหัวหน้า</SelectItem>
+                        <SelectItem value="head">หัวหน้าฝ่าย</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <Button size="sm" variant="destructive" onclick={() => removeMember(m.id)}>นำออก</Button>
                   </div>
                 </div>

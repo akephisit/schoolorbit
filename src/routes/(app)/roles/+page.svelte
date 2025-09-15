@@ -3,6 +3,9 @@
   import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '$lib/components/ui/card';
   import { Input } from '$lib/components/ui/input';
   import { Button } from '$lib/components/ui/button';
+  import { Checkbox } from '$lib/components/ui/checkbox';
+  import { RadioGroup, RadioGroupItem } from '$lib/components/ui/radio-group';
+  import { Label } from '$lib/components/ui/label';
   import { page } from '$app/stores';
   import { toast } from 'svelte-sonner';
 
@@ -12,8 +15,9 @@
   let roles: Role[] = [];
   let perms: Perm[] = [];
   let loading = true;
-  let selectedRoleId: string | null = null;
+  let selectedRoleId: string | undefined = undefined;
   let rolePerms = new Set<string>();
+  let lastSelectedRoleId: string | undefined = undefined;
 
   // Create role form
   let newRoleCode = '';
@@ -45,7 +49,7 @@
         if (editingName[r.id] === undefined) editingName[r.id] = r.name;
       }
       if (selectedRoleId && !roles.find(r => r.id === selectedRoleId)) {
-        selectedRoleId = null;
+        selectedRoleId = undefined;
       }
       if (!selectedRoleId && roles.length) {
         selectedRoleId = roles[0].id;
@@ -71,6 +75,12 @@
   }
 
   onMount(loadAll);
+
+  // When selection changes via RadioGroup, load permissions
+  $: if (selectedRoleId && selectedRoleId !== lastSelectedRoleId) {
+    lastSelectedRoleId = selectedRoleId;
+    loadRolePerms(selectedRoleId);
+  }
 
   async function createRole() {
     if (!newRoleCode.trim() || !newRoleName.trim()) return;
@@ -108,7 +118,7 @@
     if (!confirm('ลบบทบาทนี้หรือไม่?')) return;
     const res = await fetch(`/roles/api/roles/${id}`, { method: 'DELETE' });
     if (!res.ok) { toast.error('ลบบทบาทไม่สำเร็จ'); return; }
-    if (selectedRoleId === id) selectedRoleId = null;
+    if (selectedRoleId === id) selectedRoleId = undefined;
     await loadRoles();
     toast.success('ลบบทบาทสำเร็จ');
   }
@@ -170,10 +180,11 @@
         <CardContent class="space-y-4">
           <div class="text-sm text-gray-600">ระบบปิดการสร้างบทบาทใหม่ หากต้องการกำหนดการเข้าถึงให้ละเอียด ใช้การกำหนดสิทธิ์ (permissions) กับบทบาทที่มีอยู่</div>
 
-          <div class="divide-y border rounded">
+          <RadioGroup bind:value={selectedRoleId} class="divide-y border rounded">
             {#each roles as r}
               <div class="p-3 flex items-center gap-2 {selectedRoleId === r.id ? 'bg-gray-50' : ''}">
-                <input type="radio" name="selRole" checked={selectedRoleId === r.id} on:change={() => { selectedRoleId = r.id; loadRolePerms(r.id); }} />
+                <RadioGroupItem value={r.id} id={`role-${r.id}`} />
+                <Label for={`role-${r.id}`} class="sr-only">เลือก {r.name}</Label>
                 <div class="flex-1">
                   <div class="text-xs text-gray-500">{r.code}</div>
                   <div class="flex gap-2 mt-1 items-center">
@@ -191,7 +202,7 @@
             {#if roles.length === 0}
               <div class="p-3 text-sm text-gray-500">ยังไม่มีบทบาท</div>
             {/if}
-          </div>
+          </RadioGroup>
         </CardContent>
       </Card>
 
@@ -213,13 +224,15 @@
           {:else}
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
               {#each perms as p}
-                <label class="flex items-center gap-2 border rounded p-2">
-                  <input type="checkbox" checked={rolePerms.has(p.code)} on:change={() => toggleRolePerm(p.code)} />
-                  <div>
+                <div class="flex items-center gap-2 border rounded p-2" role="button" tabindex="0"
+                     on:click={() => toggleRolePerm(p.code)}
+                     on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleRolePerm(p.code); }}}>
+                  <Checkbox id={`perm-${p.id}`} checked={rolePerms.has(p.code)} />
+                  <Label for={`perm-${p.id}`}>
                     <div class="text-sm font-medium">{p.name}</div>
                     <div class="text-xs text-gray-500">{p.code}</div>
-                  </div>
-                </label>
+                  </Label>
+                </div>
               {/each}
             </div>
             {#if perms.length === 0}

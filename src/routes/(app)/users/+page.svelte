@@ -4,6 +4,9 @@
   import { Input } from '$lib/components/ui/input';
   import { Button } from '$lib/components/ui/button';
   import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '$lib/components/ui/table';
+  import { Checkbox } from '$lib/components/ui/checkbox';
+  import { Label } from '$lib/components/ui/label';
+  import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select';
   import { toast } from 'svelte-sonner';
 
   type UserRow = { id: string; email: string | null; displayName: string; status: string; roles: string[] };
@@ -145,12 +148,14 @@
         <Input placeholder="อีเมล" bind:value={cEmail} />
         <Input placeholder="ชื่อแสดงผล" bind:value={cName} />
         <Input placeholder="รหัสผ่าน (อย่างน้อย 8 ตัว)" type="password" bind:value={cPassword} />
-        <div class="flex flex-wrap items-center gap-2">
+        <div class="flex flex-wrap items-center gap-3">
           {#each roles as r}
-            <label class="flex items-center gap-1 text-sm">
-              <input type="checkbox" checked={cRoles.has(r.code)} onchange={(e) => { e.currentTarget?.checked ? cRoles.add(r.code) : cRoles.delete(r.code); cRoles = new Set(cRoles); }} />
-              {r.name}
-            </label>
+            <div class="flex items-center gap-2" role="button" tabindex="0"
+                 on:click={() => { cRoles.has(r.code) ? cRoles.delete(r.code) : cRoles.add(r.code); cRoles = new Set(cRoles); }}
+                 on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cRoles.has(r.code) ? cRoles.delete(r.code) : cRoles.add(r.code); cRoles = new Set(cRoles); } }}>
+              <Checkbox id={`crole-${r.code}`} checked={cRoles.has(r.code)} />
+              <Label for={`crole-${r.code}`} class="text-sm">{r.name}</Label>
+            </div>
           {/each}
         </div>
       </div>
@@ -198,23 +203,28 @@
                 </TableCell>
                 <TableCell>
                   {#if editing[u.id]}
-                    <select class="border rounded px-2 py-1" bind:value={editStatus[u.id]}>
-                      <option value="active">ใช้งาน</option>
-                      <option value="inactive">ไม่ใช้งาน</option>
-                      <option value="suspended">ระงับ</option>
-                    </select>
+                    <Select type="single" bind:value={editStatus[u.id]}>
+                      <SelectTrigger>{statusLabel[editStatus[u.id]] || editStatus[u.id] || 'เลือกสถานะ'}</SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">ใช้งาน</SelectItem>
+                        <SelectItem value="inactive">ไม่ใช้งาน</SelectItem>
+                        <SelectItem value="suspended">ระงับ</SelectItem>
+                      </SelectContent>
+                    </Select>
                   {:else}
                     <span class="text-sm">{statusLabel[u.status] || u.status}</span>
                   {/if}
                 </TableCell>
                 <TableCell>
                   {#if editing[u.id]}
-                    <div class="flex flex-wrap gap-2">
+                    <div class="flex flex-wrap gap-3">
                       {#each roles as r}
-                        <label class="flex items-center gap-1 text-sm">
-                          <input type="checkbox" checked={editRoles[u.id]?.has(r.code)} onchange={(e) => { const set = editRoles[u.id] || new Set<string>(); if (e.currentTarget?.checked) set.add(r.code); else set.delete(r.code); editRoles[u.id] = new Set(set); }} />
-                          {r.name}
-                        </label>
+                        <div class="flex items-center gap-2" role="button" tabindex="0"
+                             on:click={() => { const set = editRoles[u.id] || new Set<string>(); if (set.has(r.code)) set.delete(r.code); else set.add(r.code); editRoles[u.id] = new Set(set); }}
+                             on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); const set = editRoles[u.id] || new Set<string>(); if (set.has(r.code)) set.delete(r.code); else set.add(r.code); editRoles[u.id] = new Set(set); } }}>
+                          <Checkbox id={`erole-${u.id}-${r.code}`} checked={editRoles[u.id]?.has(r.code)} />
+                          <Label for={`erole-${u.id}-${r.code}`} class="text-sm">{r.name}</Label>
+                        </div>
                       {/each}
                     </div>
                     <div class="mt-2">
