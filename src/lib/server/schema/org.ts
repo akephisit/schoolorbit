@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, timestamp, pgEnum, date, foreignKey } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, timestamp, pgEnum, date, foreignKey, uniqueIndex } from 'drizzle-orm/pg-core';
 import { appUser } from './users';
 
 export const orgUnit = pgTable(
@@ -26,7 +26,9 @@ export const orgMembership = pgTable('org_membership', {
   roleInUnit: membershipRoleEnum('role_in_unit').notNull().default('member'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow()
-});
+}, (t) => ({
+  orgUnitUserUnique: uniqueIndex('org_membership_unit_user_unique').on(t.orgUnitId, t.userId)
+}));
 
 export type OrgUnit = typeof orgUnit.$inferSelect;
 export type NewOrgUnit = typeof orgUnit.$inferInsert;

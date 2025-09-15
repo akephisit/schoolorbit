@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, timestamp, date } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, timestamp, date, uniqueIndex } from 'drizzle-orm/pg-core';
 import { appUser } from './users';
 
 export const position = pgTable('position', {
@@ -16,7 +16,9 @@ export const positionAssignment = pgTable('position_assignment', {
   positionId: uuid('position_id').notNull().references(() => position.id, { onDelete: 'cascade' }),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow()
-});
+}, (t) => ({
+  userPositionUnique: uniqueIndex('position_assignment_user_position_unique').on(t.userId, t.positionId)
+}));
 
 export type Position = typeof position.$inferSelect;
 export type NewPosition = typeof position.$inferInsert;

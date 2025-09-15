@@ -291,6 +291,74 @@ async function main() {
     console.log('✅ Thai labels applied to existing menu items');
   }
 
+  // ---- Org Units & Positions ----
+  console.log('\nSeeding org units and positions...');
+  // Org units
+  const orgUnits = [
+    { code: 'ACADEMIC', nameTh: 'ฝ่ายบริหารวิชาการ', type: 'division' },
+    { code: 'HR', nameTh: 'ฝ่ายบริหารงานบุคคล', type: 'division' },
+    { code: 'GENERAL', nameTh: 'ฝ่ายบริหารงานทั่วไป', type: 'division' },
+    { code: 'ADMIN', nameTh: 'ฝ่ายธุรการ', type: 'division' },
+    { code: 'FINANCE', nameTh: 'ฝ่ายการเงิน', type: 'division' }
+  ];
+  for (const u of orgUnits) {
+    await sql`INSERT INTO org_unit (code, name_th, type) VALUES (${u.code}, ${u.nameTh}, ${u.type}) ON CONFLICT (code) DO UPDATE SET name_th = EXCLUDED.name_th, type = EXCLUDED.type`;
+  }
+
+  // Positions
+  const positions = [
+    { code: 'DIRECTOR', titleTh: 'ผู้อำนวยการโรงเรียน', category: 'management' },
+    { code: 'VICE_DIRECTOR', titleTh: 'รองผู้อำนวยการ', category: 'management' },
+    { code: 'TEACHER', titleTh: 'ครู', category: 'teacher' },
+    { code: 'STAFF', titleTh: 'เจ้าหน้าที่', category: 'staff' }
+  ];
+  for (const p of positions) {
+    await sql`INSERT INTO position (code, title_th, category) VALUES (${p.code}, ${p.titleTh}, ${p.category}) ON CONFLICT (code) DO UPDATE SET title_th = EXCLUDED.title_th, category = EXCLUDED.category`;
+  }
+
+  // Lookups
+  const unitRows = await sql`SELECT id, code FROM org_unit`;
+  const unitIdByCode = Object.fromEntries(unitRows.map(r => [r.code, r.id]));
+  const posRows = await sql`SELECT id, code FROM position`;
+  const posIdByCode = Object.fromEntries(posRows.map(r => [r.code, r.id]));
+
+  // Org memberships (no period)
+  const insMembership = async (email, unitCode, role) => {
+    const u = await sql`SELECT id FROM app_user WHERE email = ${email} LIMIT 1`;
+    if (!u.length) return;
+    const uid = u[0].id;
+    const oid = unitIdByCode[unitCode];
+    if (!oid) return;
+    // unique on (org_unit_id, user_id)
+    await sql`INSERT INTO org_membership (user_id, org_unit_id, role_in_unit) VALUES (${uid}, ${oid}, ${role}) ON CONFLICT (org_unit_id, user_id) DO UPDATE SET role_in_unit = EXCLUDED.role_in_unit`;
+  };
+  await insMembership('admin@school.test', 'ACADEMIC', 'head');
+  await insMembership('teacher@school.test', 'ACADEMIC', 'member');
+
+  // Position assignments (no period)
+  const insPosition = async (email, posCode) => {
+    const u = await sql`SELECT id FROM app_user WHERE email = ${email} LIMIT 1`;
+    if (!u.length) return;
+    const uid = u[0].id;
+    const pid = posIdByCode[posCode];
+    if (!pid) return;
+    await sql`INSERT INTO position_assignment (user_id, position_id) VALUES (${uid}, ${pid}) ON CONFLICT (user_id, position_id) DO NOTHING`;
+  };
+  await insPosition('admin@school.test', 'DIRECTOR');
+  await insPosition('teacher@school.test', 'TEACHER');
+
+  // Homeroom assignment (no period)
+  const insHomeroom = async (email, classCode) => {
+    const u = await sql`SELECT id FROM app_user WHERE email = ${email} LIMIT 1`;
+    if (!u.length) return;
+    const uid = u[0].id;
+    // one homeroom per class (class_code unique)
+    await sql`INSERT INTO homeroom_assignment (teacher_id, class_code) VALUES (${uid}, ${classCode}) ON CONFLICT (class_code) DO UPDATE SET teacher_id = EXCLUDED.teacher_id`;
+  };
+  await insHomeroom('teacher@school.test', 'ม.6/1');
+
+  console.log('✅ Seeded org units, positions, and sample assignments');
+
   console.log('\n🎉 Done! Test accounts use password: 12345678');
 }
 
