@@ -22,6 +22,7 @@
   let cEmail = $state('');
   let cName = $state('');
   let cPassword = $state('');
+  let cNationalId = $state('');
   let cRoles = $state(new Set<string>());
 
   async function loadRoles() {
@@ -46,18 +47,21 @@
   $effect(() => { (async () => { await Promise.all([loadRoles(), loadUsers()]); })(); });
 
   async function createUser() {
-    if (!cEmail.trim() || !cName.trim()) return;
+    if (!cEmail.trim() || !cName.trim() || !cNationalId.trim()) { toast.error('กรุณากรอกอีเมล ชื่อ และเลขบัตร'); return; }
+    const digits = cNationalId.replace(/\D/g, '');
+    if (digits.length !== 13) { toast.error('เลขบัตรประชาชนต้องมี 13 หลัก'); return; }
     creating = true;
     try {
       const payload = {
         email: cEmail.trim(),
         displayName: cName.trim(),
         password: cPassword || undefined,
+        nationalId: digits,
         roles: Array.from(cRoles)
       };
       const res = await fetch('/users/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       if (!res.ok) throw new Error(await res.text());
-      cEmail = ''; cName = ''; cPassword = ''; cRoles = new Set();
+      cEmail = ''; cName = ''; cPassword = ''; cNationalId = ''; cRoles = new Set();
       await loadUsers();
       toast.success('สร้างผู้ใช้สำเร็จ');
     } catch (e) {
@@ -142,10 +146,11 @@
       <CardDescription>ใส่อีเมล ชื่อ และตัวเลือกบทบาท เริ่มต้น</CardDescription>
     </CardHeader>
     <CardContent class="space-y-3">
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
         <Input placeholder="อีเมล" bind:value={cEmail} />
         <Input placeholder="ชื่อแสดงผล" bind:value={cName} />
         <Input placeholder="รหัสผ่าน (อย่างน้อย 8 ตัว)" type="password" bind:value={cPassword} />
+        <Input placeholder="เลขบัตรประชาชน 13 หลัก" bind:value={cNationalId} maxlength={13} />
         <div class="flex flex-wrap items-center gap-3">
           {#each roles as r}
             <div class="flex items-center gap-2" role="button" tabindex="0"
