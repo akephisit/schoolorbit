@@ -8,12 +8,12 @@
 	import { Tabs, TabsContent, TabsList, TabsTrigger } from '$lib/components/ui/tabs';
 	import { toast } from 'svelte-sonner';
 
-	let nationalId = '';
-	let password = '';
-	let otp = '';
-	let loginMethod = 'password';
-	let loading = false;
-	let error = '';
+	let nationalId = $state('');
+	let password = $state('');
+	let otp = $state('');
+	let loginMethod = $state<'password'|'otp'>('password');
+	let loading = $state(false);
+	let error = $state('');
 
 	async function handleLogin() {
 		if (!nationalId.trim()) {
@@ -76,8 +76,8 @@
 		}
 	}
 
-	function switchLoginMethod(method: string) {
-		loginMethod = method;
+	function switchLoginMethod(value: string) {
+		loginMethod = (value === 'otp' ? 'otp' : 'password');
 		error = '';
 		password = '';
 		otp = '';
@@ -111,7 +111,7 @@
 						<TabsTrigger value="otp">OTP</TabsTrigger>
 					</TabsList>
 					
-					<form on:submit|preventDefault={handleLogin} class="space-y-6 mt-6">
+				<form onsubmit={(e) => { e.preventDefault(); handleLogin(); }} class="space-y-6 mt-6">
 						<div>
 							<Label for="nationalId">เลขบัตรประชาชน</Label>
 							<Input

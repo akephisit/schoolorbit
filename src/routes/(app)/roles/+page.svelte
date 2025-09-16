@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  
   import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '$lib/components/ui/card';
   import { Input } from '$lib/components/ui/input';
   import { Button } from '$lib/components/ui/button';
@@ -12,26 +12,26 @@
   type Role = { id: string; code: string; name: string };
   type Perm = { id: string; code: string; name: string };
 
-  let roles: Role[] = [];
-  let perms: Perm[] = [];
-  let loading = true;
-  let selectedRoleId: string | undefined = undefined;
-  let rolePerms = new Set<string>();
-  let lastSelectedRoleId: string | undefined = undefined;
+  let roles = $state<Role[]>([]);
+  let perms = $state<Perm[]>([]);
+  let loading = $state(true);
+  let selectedRoleId = $state<string | undefined>(undefined);
+  let rolePerms = $state<Set<string>>(new Set());
+  let lastSelectedRoleId = $state<string | undefined>(undefined);
 
   // Create role form
-  let newRoleCode = '';
-  let newRoleName = '';
-  let creatingRole = false;
+  let newRoleCode = $state('');
+  let newRoleName = $state('');
+  let creatingRole = $state(false);
 
   // Create permission form
-  let newPermCode = '';
-  let newPermName = '';
-  let creatingPerm = false;
+  let newPermCode = $state('');
+  let newPermName = $state('');
+  let creatingPerm = $state(false);
 
   // Inline edit role name
-  let editingName: Record<string, string> = {};
-  let savingRole: Record<string, boolean> = {};
+  let editingName = $state<Record<string, string>>({});
+  let savingRole = $state<Record<string, boolean>>({});
 
   async function loadAll() {
     loading = true;
@@ -74,13 +74,15 @@
     }
   }
 
-  onMount(loadAll);
+  $effect(() => { loadAll(); });
 
   // When selection changes via RadioGroup, load permissions
-  $: if (selectedRoleId && selectedRoleId !== lastSelectedRoleId) {
-    lastSelectedRoleId = selectedRoleId;
-    loadRolePerms(selectedRoleId);
-  }
+  $effect(() => {
+    if (selectedRoleId && selectedRoleId !== lastSelectedRoleId) {
+      lastSelectedRoleId = selectedRoleId;
+      loadRolePerms(selectedRoleId);
+    }
+  });
 
   async function createRole() {
     if (!newRoleCode.trim() || !newRoleName.trim()) return;
@@ -185,7 +187,7 @@
               <button type="button"
                       class="w-full text-left flex items-center gap-3 px-3 py-2 transition-colors border-l-2 {selectedRoleId === r.id ? 'bg-primary/5 border-primary' : 'border-transparent hover:bg-gray-50'}"
                       aria-pressed={selectedRoleId === r.id}
-                      on:click={() => { selectedRoleId = r.id; loadRolePerms(r.id); }}>
+                      onclick={() => { selectedRoleId = r.id; loadRolePerms(r.id); }}>
                 <div class="flex-1">
                   <div class="text-sm font-medium {selectedRoleId === r.id ? 'text-primary' : ''}">{r.name}</div>
                   <div class="text-xs text-gray-500">{r.code}</div>
@@ -221,8 +223,8 @@
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
               {#each perms as p}
                 <div class="flex items-center gap-2 border rounded p-2" role="button" tabindex="0"
-                     on:click={() => toggleRolePerm(p.code)}
-                     on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleRolePerm(p.code); }}}>
+                     onclick={() => toggleRolePerm(p.code)}
+                     onkeydown={(e) => { if ((e as KeyboardEvent).key === 'Enter' || (e as KeyboardEvent).key === ' ') { e.preventDefault(); toggleRolePerm(p.code); }}}>
                   <Checkbox id={`perm-${p.id}`} checked={rolePerms.has(p.code)} />
                   <Label for={`perm-${p.id}`}>
                     <div class="text-sm font-medium">{p.name}</div>

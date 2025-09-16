@@ -7,10 +7,10 @@
 	import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '$lib/components/ui/card';
 	import { toast } from 'svelte-sonner';
 
-	let nationalId = '';
-	let password = '';
-	let loading = false;
-	let error = '';
+	let nationalId = $state('');
+	let password = $state('');
+	let loading = $state(false);
+	let error = $state('');
 
 	async function handleLogin() {
 		if (!nationalId.trim() || !password.trim()) {
@@ -78,7 +78,7 @@
 				<CardDescription>กรุณากรอกข้อมูลการเข้าสู่ระบบ</CardDescription>
 			</CardHeader>
 			<CardContent>
-				<form on:submit|preventDefault={handleLogin} class="space-y-6">
+				<form onsubmit={(e) => { e.preventDefault(); handleLogin(); }} class="space-y-6">
 					<div>
 						<Label for="nationalId">เลขบัตรประชาชน</Label>
 						<Input

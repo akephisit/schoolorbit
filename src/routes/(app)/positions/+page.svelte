@@ -11,19 +11,19 @@
   type Position = { id: string; code: string; titleTh: string; category: string | null };
   type Assign = { id: string; userId: string; positionId: string; email: string; displayName: string };
 
-  let positions: Position[] = [];
-  let selectedPosId: string | undefined = undefined;
-  let assigns: Assign[] = [];
-  let loading = true;
+  let positions = $state<Position[]>([]);
+  let selectedPosId = $state<string | undefined>(undefined);
+  let assigns = $state<Assign[]>([]);
+  let loading = $state(true);
 
   // New position
-  let pCode = '';
-  let pTitle = '';
-  let pCat = '';
-  let creating = false;
+  let pCode = $state('');
+  let pTitle = $state('');
+  let pCat = $state('');
+  let creating = $state(false);
 
   // New assignment
-  let aEmail = '';
+  let aEmail = $state('');
 
   async function loadPositions() {
     const res = await fetch('/positions/api/positions');
@@ -35,7 +35,7 @@
     if (res.ok) { const data = await res.json(); assigns = data.data; }
   }
 
-  onMount(async () => { loading = true; await loadPositions(); await loadAssigns(); loading = false; });
+  $effect(() => { loading = true; (async () => { await loadPositions(); await loadAssigns(); loading = false; })(); });
 
   async function createPosition() {
     if (!pCode.trim() || !pTitle.trim()) return;
@@ -94,8 +94,8 @@
               <button type="button"
                       class="w-full text-left flex items-center gap-3 px-3 py-2 transition-colors border-l-2 {selectedPosId === p.id ? 'bg-primary/5 border-primary' : 'border-transparent hover:bg-gray-50'}"
                       aria-pressed={selectedPosId === p.id}
-                      on:click={() => { selectedPosId = p.id; loadAssigns(); }}
-                      on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectedPosId = p.id; loadAssigns(); } }}>
+                      onclick={() => { selectedPosId = p.id; loadAssigns(); }}
+                      onkeydown={(e) => { if ((e as KeyboardEvent).key === 'Enter' || (e as KeyboardEvent).key === ' ') { e.preventDefault(); selectedPosId = p.id; loadAssigns(); } }}>
                 <RadioGroupItem value={p.id} id={`pos-${p.id}`} class="sr-only" />
                 <div class="flex-1">
                   <div class="text-sm font-medium {selectedPosId === p.id ? 'text-primary' : ''}">{p.titleTh}</div>

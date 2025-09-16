@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  
   import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '$lib/components/ui/card';
   import { Input } from '$lib/components/ui/input';
   import { Button } from '$lib/components/ui/button';
@@ -12,17 +12,17 @@
   type UserRow = { id: string; email: string | null; displayName: string; status: string; roles: string[] };
   type RoleOpt = { id: string; code: string; name: string };
 
-  let roles: RoleOpt[] = [];
-  let users: UserRow[] = [];
-  let loading = true;
-  let creating = false;
-  let q = '';
+  let roles = $state<RoleOpt[]>([]);
+  let users = $state<UserRow[]>([]);
+  let loading = $state(true);
+  let creating = $state(false);
+  let q = $state('');
 
   // create form
-  let cEmail = '';
-  let cName = '';
-  let cPassword = '';
-  let cRoles = new Set<string>();
+  let cEmail = $state('');
+  let cName = $state('');
+  let cPassword = $state('');
+  let cRoles = $state(new Set<string>());
 
   async function loadRoles() {
     const res = await fetch('/users/api/roles');
@@ -43,9 +43,7 @@
     loading = false;
   }
 
-  onMount(async () => {
-    await Promise.all([loadRoles(), loadUsers()]);
-  });
+  $effect(() => { (async () => { await Promise.all([loadRoles(), loadUsers()]); })(); });
 
   async function createUser() {
     if (!cEmail.trim() || !cName.trim()) return;
@@ -70,15 +68,15 @@
   }
 
   // editing state per row
-  let editing: Record<string, boolean> = {};
-  let editName: Record<string, string> = {};
-  let editEmail: Record<string, string> = {};
-  let editStatus: Record<string, string> = {};
-  let editPassword: Record<string, string> = {};
-  let editRoles: Record<string, Set<string>> = {};
+  let editing = $state<Record<string, boolean>>({});
+  let editName = $state<Record<string, string>>({});
+  let editEmail = $state<Record<string, string>>({});
+  let editStatus = $state<Record<string, string>>({});
+  let editPassword = $state<Record<string, string>>({});
+  let editRoles = $state<Record<string, Set<string>>>({});
 
   // Map role code -> display name from API
-  $: roleNameMap = new Map(roles.map(r => [r.code, r.name] as const));
+  const roleNameMap = $derived(new Map(roles.map(r => [r.code, r.name] as const)));
 
   const statusLabel: Record<string, string> = {
     active: 'ใช้งาน',
@@ -151,8 +149,8 @@
         <div class="flex flex-wrap items-center gap-3">
           {#each roles as r}
             <div class="flex items-center gap-2" role="button" tabindex="0"
-                 on:click={() => { cRoles.has(r.code) ? cRoles.delete(r.code) : cRoles.add(r.code); cRoles = new Set(cRoles); }}
-                 on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cRoles.has(r.code) ? cRoles.delete(r.code) : cRoles.add(r.code); cRoles = new Set(cRoles); } }}>
+                 onclick={() => { cRoles.has(r.code) ? cRoles.delete(r.code) : cRoles.add(r.code); cRoles = new Set(cRoles); }}
+                 onkeydown={(e) => { if ((e as KeyboardEvent).key === 'Enter' || (e as KeyboardEvent).key === ' ') { e.preventDefault(); cRoles.has(r.code) ? cRoles.delete(r.code) : cRoles.add(r.code); cRoles = new Set(cRoles); } }}>
               <Checkbox id={`crole-${r.code}`} checked={cRoles.has(r.code)} />
               <Label for={`crole-${r.code}`} class="text-sm">{r.name}</Label>
             </div>
@@ -220,8 +218,8 @@
                     <div class="flex flex-wrap gap-3">
                       {#each roles as r}
                         <div class="flex items-center gap-2" role="button" tabindex="0"
-                             on:click={() => { const set = editRoles[u.id] || new Set<string>(); if (set.has(r.code)) set.delete(r.code); else set.add(r.code); editRoles[u.id] = new Set(set); }}
-                             on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); const set = editRoles[u.id] || new Set<string>(); if (set.has(r.code)) set.delete(r.code); else set.add(r.code); editRoles[u.id] = new Set(set); } }}>
+                             onclick={() => { const set = editRoles[u.id] || new Set<string>(); if (set.has(r.code)) set.delete(r.code); else set.add(r.code); editRoles[u.id] = new Set(set); }}
+                             onkeydown={(e) => { if ((e as KeyboardEvent).key === 'Enter' || (e as KeyboardEvent).key === ' ') { e.preventDefault(); const set = editRoles[u.id] || new Set<string>(); if (set.has(r.code)) set.delete(r.code); else set.add(r.code); editRoles[u.id] = new Set(set); } }}>
                           <Checkbox id={`erole-${u.id}-${r.code}`} checked={editRoles[u.id]?.has(r.code)} />
                           <Label for={`erole-${u.id}-${r.code}`} class="text-sm">{r.name}</Label>
                         </div>

@@ -12,21 +12,21 @@
   type OrgUnit = { id: string; code: string; nameTh: string; type: string | null; parentId: string | null };
   type Member = { id: string; userId: string; roleInUnit: 'head'|'deputy'|'member'; displayName: string; email: string };
 
-  let units: OrgUnit[] = [];
-  let loading = true;
-  let selectedUnitId: string | undefined = undefined;
-  let members: Member[] = [];
-  let mRoleSel: Record<string, 'head'|'deputy'|'member'> = {};
+  let units = $state<OrgUnit[]>([]);
+  let loading = $state(true);
+  let selectedUnitId = $state<string | undefined>(undefined);
+  let members = $state<Member[]>([]);
+  let mRoleSel = $state<Record<string, 'head'|'deputy'|'member'>>({});
 
   // New unit
-  let uCode = '';
-  let uName = '';
-  let uType = '';
-  let creating = false;
+  let uCode = $state('');
+  let uName = $state('');
+  let uType = $state('');
+  let creating = $state(false);
 
   // New member
-  let mEmail = '';
-  let mRole: 'head'|'deputy'|'member' = 'member';
+  let mEmail = $state('');
+  let mRole = $state<'head'|'deputy'|'member'>('member');
 
   async function loadUnits() {
     const res = await fetch('/org/api/units');
@@ -52,17 +52,17 @@
     }
   }
 
-  onMount(async () => { loading = true; await loadUnits(); loading = false; });
+  $effect(() => { loading = true; (async () => { await loadUnits(); loading = false; })(); });
 
   // Update member role when selection changes
-  $: if (members) {
+  $effect(() => {
     for (const m of members) {
       const next = mRoleSel[m.id];
       if (next && next !== m.roleInUnit) {
         updateMemberRole(m.id, next);
       }
     }
-  }
+  });
 
   async function createUnit() {
     if (!uCode.trim() || !uName.trim()) return;
@@ -130,8 +130,8 @@
               <button type="button"
                       class="w-full text-left flex items-center gap-3 px-3 py-2 transition-colors border-l-2 {selectedUnitId === u.id ? 'bg-primary/5 border-primary' : 'border-transparent hover:bg-gray-50'}"
                       aria-pressed={selectedUnitId === u.id}
-                      on:click={() => { selectedUnitId = u.id; loadMembers(); }}
-                      on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectedUnitId = u.id; loadMembers(); } }}>
+                      onclick={() => { selectedUnitId = u.id; loadMembers(); }}
+                      onkeydown={(e) => { if ((e as KeyboardEvent).key === 'Enter' || (e as KeyboardEvent).key === ' ') { e.preventDefault(); selectedUnitId = u.id; loadMembers(); } }}>
                 <RadioGroupItem value={u.id} id={`unit-${u.id}`} class="sr-only" />
                 <div class="flex-1">
                   <div class="text-sm font-medium {selectedUnitId === u.id ? 'text-primary' : ''}">{u.nameTh}</div>

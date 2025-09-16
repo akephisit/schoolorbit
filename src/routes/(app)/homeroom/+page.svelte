@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '$lib/components/ui/card';
   import { Input } from '$lib/components/ui/input';
   import UserAutocomplete from '$lib/components/UserAutocomplete.svelte';
@@ -7,11 +6,11 @@
 
   type HR = { id: string; classCode: string; email: string; displayName: string };
 
-  let items: HR[] = [];
-  let loading = true;
+  let items = $state<HR[]>([]);
+  let loading = $state(true);
 
-  let classCode = '';
-  let teacherEmail = '';
+  let classCode = $state('');
+  let teacherEmail = $state('');
   
 
   async function loadAll() {
@@ -19,7 +18,7 @@
     if (res.ok) { const data = await res.json(); items = data.data; }
   }
 
-  onMount(async () => { loading = true; await loadAll(); loading = false; });
+  $effect(() => { loading = true; (async () => { await loadAll(); loading = false; })(); });
 
   async function add() {
     if (!classCode.trim() || !teacherEmail.trim()) return;

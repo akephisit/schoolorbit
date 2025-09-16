@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '$lib/components/ui/card';
 	import { 
@@ -22,9 +21,9 @@
 		color: string;
 	}
 
-	let dashboardCards: DashboardCard[] = [];
-	let loading = true;
-	let error = '';
+	let dashboardCards = $state<DashboardCard[]>([]);
+	let loading = $state(true);
+	let error = $state('');
 
 	const iconMap: Record<string, any> = {
 		users: Users,
@@ -47,7 +46,7 @@
 		red: 'text-red-600 bg-red-100'
 	};
 
-	onMount(async () => {
+	$effect(() => { (async () => {
 		try {
 			const response = await fetch('/dashboard/summary');
 			if (!response.ok) {
@@ -61,7 +60,7 @@
 		} finally {
 			loading = false;
 		}
-	});
+	})() });
 
 	function getUserTypeTitle() {
 		const roles = $page.data.roles || [];
@@ -132,14 +131,12 @@
 			{#each dashboardCards as card}
 				<Card>
 					<CardContent class="p-6">
+						{@const Icon = iconMap[card.icon] || Activity}
 						<div class="flex items-center">
 							<div class="flex-shrink-0">
-								<div class="w-8 h-8 rounded-full flex items-center justify-center {colorClasses[card.color] || 'text-gray-600 bg-gray-100'}">
-									<svelte:component 
-										this={iconMap[card.icon] || Activity}
-										class="w-5 h-5"
-									/>
-								</div>
+				<div class="w-8 h-8 rounded-full flex items-center justify-center {colorClasses[card.color] || 'text-gray-600 bg-gray-100'}">
+					<Icon class="w-5 h-5" />
+				</div>
 							</div>
 							<div class="ml-5 w-0 flex-1">
 								<dl>
