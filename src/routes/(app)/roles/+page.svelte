@@ -189,15 +189,8 @@
                 <RadioGroupItem value={r.id} id={`role-${r.id}`} />
                 <Label for={`role-${r.id}`} class="sr-only">เลือก {r.name}</Label>
                 <div class="flex-1">
+                  <div class="text-sm font-medium">{r.name}</div>
                   <div class="text-xs text-gray-500">{r.code}</div>
-                  <div class="flex gap-2 mt-1 items-center">
-                    {#if ['staff','student','parent'].includes(r.code)}
-                      <Input class="flex-1" value={r.name} disabled />
-                    {:else}
-                      <Input class="flex-1" bind:value={editingName[r.id]} placeholder={r.name} />
-                      <Button size="sm" onclick={() => updateRoleName(r.id)} disabled={!!savingRole[r.id]}>{savingRole[r.id] ? '...' : 'บันทึก'}</Button>
-                    {/if}
-                  </div>
                 </div>
               </div>
             {/each}
