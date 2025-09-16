@@ -90,7 +90,10 @@
 
           <RadioGroup bind:value={selectedPosId} class="border rounded divide-y max-h-[400px] overflow-auto">
             {#each positions as p}
-              <div class="p-2 flex items-center gap-2 {selectedPosId === p.id ? 'bg-gray-50' : ''}">
+              <div class="p-2 flex items-center gap-2 {selectedPosId === p.id ? 'bg-gray-50' : ''}"
+                   role="button" tabindex="0"
+                   on:click={() => { selectedPosId = p.id; loadAssigns(); }}
+                   on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectedPosId = p.id; loadAssigns(); } }}>
                 <RadioGroupItem value={p.id} id={`pos-${p.id}`} />
                 <Label for={`pos-${p.id}`} class="sr-only">เลือก {p.titleTh}</Label>
                 <div>

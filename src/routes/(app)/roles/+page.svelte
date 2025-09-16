@@ -182,7 +182,10 @@
 
           <RadioGroup bind:value={selectedRoleId} class="divide-y border rounded">
             {#each roles as r}
-              <div class="p-3 flex items-center gap-2 {selectedRoleId === r.id ? 'bg-gray-50' : ''}">
+              <div class="p-3 flex items-center gap-2 {selectedRoleId === r.id ? 'bg-gray-50' : ''}"
+                   role="button" tabindex="0"
+                   on:click={() => { selectedRoleId = r.id; loadRolePerms(r.id); }}
+                   on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectedRoleId = r.id; loadRolePerms(r.id); } }}>
                 <RadioGroupItem value={r.id} id={`role-${r.id}`} />
                 <Label for={`role-${r.id}`} class="sr-only">เลือก {r.name}</Label>
                 <div class="flex-1">

@@ -126,7 +126,10 @@
 
           <RadioGroup bind:value={selectedUnitId} class="border rounded divide-y max-h-[400px] overflow-auto">
             {#each units as u}
-              <div class="p-2 flex items-center gap-2 {selectedUnitId === u.id ? 'bg-gray-50' : ''}">
+              <div class="p-2 flex items-center gap-2 {selectedUnitId === u.id ? 'bg-gray-50' : ''}"
+                   role="button" tabindex="0"
+                   on:click={() => { selectedUnitId = u.id; loadMembers(); }}
+                   on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectedUnitId = u.id; loadMembers(); } }}>
                 <RadioGroupItem value={u.id} id={`unit-${u.id}`} />
                 <Label for={`unit-${u.id}`} class="sr-only">เลือก {u.nameTh}</Label>
                 <div>
