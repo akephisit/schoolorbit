@@ -4,8 +4,8 @@
   import { Input } from '$lib/components/ui/input';
   import { Button } from '$lib/components/ui/button';
   import { Checkbox } from '$lib/components/ui/checkbox';
-  import { RadioGroup, RadioGroupItem } from '$lib/components/ui/radio-group';
   import { Label } from '$lib/components/ui/label';
+  import CheckIcon from '@lucide/svelte/icons/check';
   import { page } from '$app/stores';
   import { toast } from 'svelte-sonner';
 
@@ -180,24 +180,25 @@
         <CardContent class="space-y-4">
           <div class="text-sm text-gray-600">ระบบปิดการสร้างบทบาทใหม่ หากต้องการกำหนดการเข้าถึงให้ละเอียด ใช้การกำหนดสิทธิ์ (permissions) กับบทบาทที่มีอยู่</div>
 
-          <RadioGroup bind:value={selectedRoleId} class="divide-y border rounded">
+          <div class="border rounded">
             {#each roles as r}
-              <div class="p-3 flex items-center gap-2 {selectedRoleId === r.id ? 'bg-gray-50' : ''}"
-                   role="button" tabindex="0"
-                   on:click={() => { selectedRoleId = r.id; loadRolePerms(r.id); }}
-                   on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectedRoleId = r.id; loadRolePerms(r.id); } }}>
-                <RadioGroupItem value={r.id} id={`role-${r.id}`} />
-                <Label for={`role-${r.id}`} class="sr-only">เลือก {r.name}</Label>
+              <button type="button"
+                      class="w-full text-left flex items-center gap-3 px-3 py-2 transition-colors border-l-2 {selectedRoleId === r.id ? 'bg-primary/5 border-primary' : 'border-transparent hover:bg-gray-50'}"
+                      aria-pressed={selectedRoleId === r.id}
+                      on:click={() => { selectedRoleId = r.id; loadRolePerms(r.id); }}>
                 <div class="flex-1">
-                  <div class="text-sm font-medium">{r.name}</div>
+                  <div class="text-sm font-medium {selectedRoleId === r.id ? 'text-primary' : ''}">{r.name}</div>
                   <div class="text-xs text-gray-500">{r.code}</div>
                 </div>
-              </div>
+                {#if selectedRoleId === r.id}
+                  <CheckIcon class="size-4 text-primary" />
+                {/if}
+              </button>
             {/each}
             {#if roles.length === 0}
               <div class="p-3 text-sm text-gray-500">ยังไม่มีบทบาท</div>
             {/if}
-          </RadioGroup>
+          </div>
         </CardContent>
       </Card>
 

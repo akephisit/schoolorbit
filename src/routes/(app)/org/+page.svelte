@@ -7,6 +7,7 @@
   import { RadioGroup, RadioGroupItem } from '$lib/components/ui/radio-group';
   import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select';
   import { Label } from '$lib/components/ui/label';
+  import CheckIcon from '@lucide/svelte/icons/check';
 
   type OrgUnit = { id: string; code: string; nameTh: string; type: string | null; parentId: string | null };
   type Member = { id: string; userId: string; roleInUnit: 'head'|'deputy'|'member'; displayName: string; email: string };
@@ -124,19 +125,22 @@
             <Button onclick={createUnit} disabled={creating}>{creating ? 'กำลังเพิ่ม...' : 'เพิ่ม'}</Button>
           </div>
 
-          <RadioGroup bind:value={selectedUnitId} class="border rounded divide-y max-h-[400px] overflow-auto">
+          <RadioGroup bind:value={selectedUnitId} class="border rounded max-h-[400px] overflow-auto">
             {#each units as u}
-              <div class="p-2 flex items-center gap-2 {selectedUnitId === u.id ? 'bg-gray-50' : ''}"
-                   role="button" tabindex="0"
-                   on:click={() => { selectedUnitId = u.id; loadMembers(); }}
-                   on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectedUnitId = u.id; loadMembers(); } }}>
-                <RadioGroupItem value={u.id} id={`unit-${u.id}`} />
-                <Label for={`unit-${u.id}`} class="sr-only">เลือก {u.nameTh}</Label>
-                <div>
-                  <div class="text-sm font-medium">{u.nameTh}</div>
+              <button type="button"
+                      class="w-full text-left flex items-center gap-3 px-3 py-2 transition-colors border-l-2 {selectedUnitId === u.id ? 'bg-primary/5 border-primary' : 'border-transparent hover:bg-gray-50'}"
+                      aria-pressed={selectedUnitId === u.id}
+                      on:click={() => { selectedUnitId = u.id; loadMembers(); }}
+                      on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectedUnitId = u.id; loadMembers(); } }}>
+                <RadioGroupItem value={u.id} id={`unit-${u.id}`} class="sr-only" />
+                <div class="flex-1">
+                  <div class="text-sm font-medium {selectedUnitId === u.id ? 'text-primary' : ''}">{u.nameTh}</div>
                   <div class="text-xs text-gray-500">{u.code}{u.type ? ` • ${u.type}` : ''}</div>
                 </div>
-              </div>
+                {#if selectedUnitId === u.id}
+                  <CheckIcon class="size-4 text-primary" />
+                {/if}
+              </button>
             {/each}
             {#if units.length === 0}
               <div class="p-3 text-sm text-gray-500">ยังไม่มีหน่วยงาน</div>
