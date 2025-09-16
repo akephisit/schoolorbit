@@ -5,11 +5,9 @@
   import { Input } from '$lib/components/ui/input';
   import { Label } from '$lib/components/ui/label';
   import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '$lib/components/ui/card';
-  import { Tabs, TabsContent, TabsList, TabsTrigger } from '$lib/components/ui/tabs';
+  // Removed actor type tabs; unified login form
   import { toast } from 'svelte-sonner';
 
-  type Actor = 'personnel' | 'student' | 'guardian';
-  let actor: Actor = $state('personnel');
   let nationalId = $state('');
   let password = $state('');
   let loading = $state(false);
@@ -28,7 +26,7 @@
       const response = await fetch('/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ actorType: actor, id: nationalId.trim(), password })
+        body: JSON.stringify({ id: nationalId.trim(), password })
       });
 
       if (!response.ok) {
@@ -52,12 +50,7 @@
     }
   }
 
-  function switchActor(value: string) {
-    actor = (['personnel', 'student', 'guardian'].includes(value) ? (value as Actor) : 'personnel');
-    error = '';
-    password = '';
-    nationalId = '';
-  }
+  // No actor switching needed
 </script>
 
 <svelte:head>
@@ -76,17 +69,10 @@
 
     <Card>
       <CardHeader>
-        <CardTitle>เลือกประเภทผู้ใช้</CardTitle>
-        <CardDescription>ระบุประเภทผู้ใช้และกรอกข้อมูลเข้าสู่ระบบ</CardDescription>
+        <CardTitle>เข้าสู่ระบบ</CardTitle>
+        <CardDescription>กรอกเลขบัตรประชาชนและรหัสผ่านเพื่อเข้าสู่ระบบ</CardDescription>
       </CardHeader>
       <CardContent>
-        <Tabs value={actor} onValueChange={switchActor}>
-          <TabsList class="grid w-full grid-cols-3">
-            <TabsTrigger value="personnel">บุคลากร</TabsTrigger>
-            <TabsTrigger value="student">นักเรียน</TabsTrigger>
-            <TabsTrigger value="guardian">ผู้ปกครอง</TabsTrigger>
-          </TabsList>
-
           <form onsubmit={(e) => { e.preventDefault(); handleLogin(); }} class="space-y-6 mt-6">
             <div>
               <Label for="nationalId">เลขบัตรประชาชน</Label>
@@ -111,10 +97,8 @@
             หมายเหตุ: ระบบยังไม่รองรับการเข้าสู่ระบบด้วย OTP
           </div>
 
-        </Tabs>
       </CardContent>
     </Card>
   </div>
   
 </div>
-

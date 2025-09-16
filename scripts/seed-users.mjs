@@ -78,52 +78,61 @@ function encryptPII(plaintext) {
   return [iv.toString('base64'), ct.toString('base64'), tag.toString('base64')].join('.');
 }
 
-async function upsertUser({ email, displayName, passwordHash, status = 'active' }) {
-  // Insert user if not exists; return id either way
+async function upsertUser({ email, displayName, passwordHash, status = 'active', nationalId }) {
+  const nationalIdHash = hashNationalId(nationalId);
+  const nationalIdEnc = encryptPII(nationalId);
+  // Insert or update user with centralized national id fields
   const res = await sql`
-    INSERT INTO app_user (email, display_name, password_hash, status)
-    VALUES (${email}, ${displayName}, ${passwordHash}, ${status})
-    ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email
+    INSERT INTO app_user (email, display_name, password_hash, status, national_id_hash, national_id_enc)
+    VALUES (${email}, ${displayName}, ${passwordHash}, ${status}, ${nationalIdHash}, ${nationalIdEnc})
+    ON CONFLICT (email) DO UPDATE SET
+      display_name = EXCLUDED.display_name,
+      password_hash = EXCLUDED.password_hash,
+      status = EXCLUDED.status,
+      national_id_hash = EXCLUDED.national_id_hash,
+      national_id_enc = EXCLUDED.national_id_enc
     RETURNING id, email;
   `;
   return res[0];
 }
 
-async function ensurePersonnelProfile({ userId, nationalId, firstName, lastName, position, department }) {
-  const nationalIdHash = hashNationalId(nationalId);
-  const nationalIdEnc = encryptPII(nationalId);
+async function ensurePersonnelProfile({ userId, firstName, lastName, position, department }) {
   await sql`
-    INSERT INTO personnel_profile (user_id, national_id_hash, national_id_enc, first_name, last_name, position, department)
-    VALUES (${userId}, ${nationalIdHash}, ${nationalIdEnc}, ${firstName}, ${lastName}, ${position}, ${department})
-    ON CONFLICT (national_id_hash) DO UPDATE SET national_id_enc = EXCLUDED.national_id_enc;
+    INSERT INTO personnel_profile (user_id, first_name, last_name, position, department)
+    VALUES (${userId}, ${firstName}, ${lastName}, ${position}, ${department})
+    ON CONFLICT (user_id) DO UPDATE SET
+      first_name = EXCLUDED.first_name,
+      last_name = EXCLUDED.last_name,
+      position = EXCLUDED.position,
+      department = EXCLUDED.department;
   `;
 }
 
-async function ensureStudentProfile({ userId, nationalId, studentCode = null, firstName, lastName, grade, classroom }) {
-  const nationalIdHash = hashNationalId(nationalId);
-  const nationalIdEnc = encryptPII(nationalId);
+async function ensureStudentProfile({ userId, studentCode = null, firstName, lastName, grade, classroom }) {
   // Try update by user_id first (1:1 logical relationship)
   const updated = await sql`
     UPDATE student_profile
-    SET national_id_hash = ${nationalIdHash}, national_id_enc = ${nationalIdEnc}, first_name = ${firstName}, last_name = ${lastName}, grade = ${grade}, classroom = ${classroom}, student_code = ${studentCode}
+    SET first_name = ${firstName}, last_name = ${lastName}, grade = ${grade}, classroom = ${classroom}, student_code = ${studentCode}
     WHERE user_id = ${userId}
     RETURNING id
   `;
   if (!updated.length) {
     await sql`
-      INSERT INTO student_profile (user_id, national_id_hash, national_id_enc, first_name, last_name, grade, classroom, student_code)
-      VALUES (${userId}, ${nationalIdHash}, ${nationalIdEnc}, ${firstName}, ${lastName}, ${grade}, ${classroom}, ${studentCode})
+      INSERT INTO student_profile (user_id, first_name, last_name, grade, classroom, student_code)
+      VALUES (${userId}, ${firstName}, ${lastName}, ${grade}, ${classroom}, ${studentCode})
     `;
   }
 }
 
-async function ensureGuardianProfile({ userId, nationalId, firstName, lastName, phoneNumber, relation }) {
-  const nationalIdHash = hashNationalId(nationalId);
-  const nationalIdEnc = encryptPII(nationalId);
+async function ensureGuardianProfile({ userId, firstName, lastName, phoneNumber, relation }) {
   await sql`
-    INSERT INTO guardian_profile (user_id, national_id_hash, national_id_enc, first_name, last_name, phone_number, relation)
-    VALUES (${userId}, ${nationalIdHash}, ${nationalIdEnc}, ${firstName}, ${lastName}, ${phoneNumber}, ${relation})
-    ON CONFLICT (national_id_hash) DO UPDATE SET national_id_enc = EXCLUDED.national_id_enc;
+    INSERT INTO guardian_profile (user_id, first_name, last_name, phone_number, relation)
+    VALUES (${userId}, ${firstName}, ${lastName}, ${phoneNumber}, ${relation})
+    ON CONFLICT (user_id) DO UPDATE SET
+      first_name = EXCLUDED.first_name,
+      last_name = EXCLUDED.last_name,
+      phone_number = EXCLUDED.phone_number,
+      relation = EXCLUDED.relation;
   `;
 }
 
@@ -135,11 +144,11 @@ async function main() {
   const staff = await upsertUser({
     email: 'staff@school.test',
     displayName: 'เจ้าหน้าที่สมชาย',
-    passwordHash
+    passwordHash,
+    nationalId: '1234567890123'
   });
   await ensurePersonnelProfile({
     userId: staff.id,
-    nationalId: '1234567890123',
     firstName: 'สมชาย',
     lastName: 'ใจดี',
     position: 'เจ้าหน้าที่',
@@ -151,11 +160,11 @@ async function main() {
   const student = await upsertUser({
     email: 'student@school.test',
     displayName: 'นักเรียนสมหญิง',
-    passwordHash
+    passwordHash,
+    nationalId: '2345678901234'
   });
   await ensureStudentProfile({
     userId: student.id,
-    nationalId: '2345678901234',
     studentCode: null,
     firstName: 'สมหญิง',
     lastName: 'เรียนดี',
@@ -168,11 +177,11 @@ async function main() {
   const parent = await upsertUser({
     email: 'parent@school.test',
     displayName: 'ผู้ปกครองสมศรี',
-    passwordHash
+    passwordHash,
+    nationalId: '9876543210123'
   });
   await ensureGuardianProfile({
     userId: parent.id,
-    nationalId: '9876543210123',
     firstName: 'สมศรี',
     lastName: 'รักลูก',
     phoneNumber: '081-234-5678',

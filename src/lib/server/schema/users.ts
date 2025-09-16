@@ -30,7 +30,9 @@ export const personnelProfile = pgTable('personnel_profile', {
     department: varchar('department', { length: 100 }),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow()
-});
+}, (t) => ({
+    personnelUserUnique: uniqueIndex('personnel_profile_user_unique').on(t.userId)
+}));
 
 export const studentProfile = pgTable('student_profile', {
     id: uuid('id').primaryKey().defaultRandom(),
@@ -42,7 +44,9 @@ export const studentProfile = pgTable('student_profile', {
     classroom: varchar('classroom', { length: 20 }),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow()
-});
+}, (t) => ({
+    studentUserUnique: uniqueIndex('student_profile_user_unique').on(t.userId)
+}));
 
 export const guardianProfile = pgTable('guardian_profile', {
     id: uuid('id').primaryKey().defaultRandom(),
@@ -53,7 +57,9 @@ export const guardianProfile = pgTable('guardian_profile', {
     relation: varchar('relation', { length: 50 }), // father, mother, guardian, etc.
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow()
-});
+}, (t) => ({
+    guardianUserUnique: uniqueIndex('guardian_profile_user_unique').on(t.userId)
+}));
 
 export type AppUser = typeof appUser.$inferSelect;
 export type NewAppUser = typeof appUser.$inferInsert;

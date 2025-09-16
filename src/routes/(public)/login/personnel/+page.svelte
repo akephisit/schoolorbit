@@ -28,7 +28,6 @@
 					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify({
-					actorType: 'personnel',
 					id: nationalId.trim(),
 					password: password
 				})

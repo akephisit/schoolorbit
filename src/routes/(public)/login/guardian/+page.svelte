@@ -36,7 +36,6 @@
 
 		try {
 			const payload: any = {
-				actorType: 'guardian',
 				id: nationalId.trim()
 			};
 
