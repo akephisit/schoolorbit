@@ -190,7 +190,6 @@
                   <div class="flex gap-2 mt-1 items-center">
                     {#if ['staff','student','parent'].includes(r.code)}
                       <Input class="flex-1" value={r.name} disabled />
-                      <span class="text-xs text-gray-500">ชื่อบทบาทพื้นฐาน (กำหนดเป็นภาษาไทย)</span>
                     {:else}
                       <Input class="flex-1" bind:value={editingName[r.id]} placeholder={r.name} />
                       <Button size="sm" onclick={() => updateRoleName(r.id)} disabled={!!savingRole[r.id]}>{savingRole[r.id] ? '...' : 'บันทึก'}</Button>
