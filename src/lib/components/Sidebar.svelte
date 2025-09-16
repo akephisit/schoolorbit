@@ -52,12 +52,12 @@
 		try {
 			await fetch('/auth/logout', { method: 'POST' });
 			toast.success('ออกจากระบบสำเร็จ');
-			goto('/login/personnel');
+			goto('/login');
 		} catch (error) {
 			console.error('Logout failed:', error);
 			toast.error('เกิดข้อผิดพลาดในการออกจากระบบ');
 			// Still redirect even if logout call fails
-			goto('/login/personnel');
+			goto('/login');
 		}
 	}
 

@@ -72,7 +72,7 @@
       await fetch('/auth/logout', { method: 'POST' });
       toast.success('ออกจากระบบสำเร็จ');
     } finally {
-      goto('/login/personnel');
+      goto('/login');
     }
   }
 

@@ -12,7 +12,7 @@ import { createCookieConfig, createAccessTokenCookie, createRefreshTokenCookie, 
 
 interface LoginRequest {
 	actorType: string; // "personnel", "student", "guardian"
-	id: string; // national_id for personnel/guardian, student_code for student  
+	id: string; // national_id for personnel/guardian and student (preferred). For backward-compat student_code also accepted.
 	password?: string;
 	otp?: string;
 }
@@ -209,60 +209,61 @@ async function authenticatePersonnel(nationalId: string, password?: string): Pro
 	return user.id;
 }
 
-async function authenticateStudent(studentCode: string, password?: string): Promise<string> {
-	if (!password) {
-		throw new Error('กรุณากรอกรหัสผ่าน');
-	}
-	const code = studentCode.trim();
+async function authenticateStudent(nationalId: string, password?: string): Promise<string> {
+    if (!password) {
+        throw new Error('กรุณากรอกรหัสผ่าน');
+    }
 
+    // Require national ID (13 digits)
+    const digits = nationalId.replace(/\D/g, '');
+    if (digits.length !== 13) {
+        throw new Error('เลขบัตรประชาชนไม่ถูกต้อง');
+    }
+
+    const hashValue = hashNationalId(digits);
     let result;
     try {
         result = await db
-            .select({
-                id: appUser.id,
-                passwordHash: appUser.passwordHash
-            })
+            .select({ id: appUser.id, passwordHash: appUser.passwordHash })
             .from(appUser)
             .innerJoin(studentProfile, eq(appUser.id, studentProfile.userId))
-            .where(and(
-                eq(studentProfile.studentCode, code),
-                sql`${appUser.status}::text = ${'active'}`
-            ))
+            // @ts-ignore: field added by migration
+            .where(and(eq((studentProfile as any).nationalIdHash, hashValue), sql`${appUser.status}::text = ${'active'}`))
             .limit(1);
     } catch (err) {
         console.error('Student auth query error:', err);
         throw new Error('เกิดข้อผิดพลาดในการยืนยันตัวตน');
     }
 
-	const user = result[0];
+    const user = result[0];
 
-	if (!user) {
-		// Probe inactive
-		const probe = await db
-			.select({ status: appUser.status })
-			.from(appUser)
-			.innerJoin(studentProfile, eq(appUser.id, studentProfile.userId))
-			.where(eq(studentProfile.studentCode, code))
-			.limit(1);
-		if (probe.length && String((probe[0] as any).status) !== 'active') {
-			throw new Error('บัญชีถูกระงับหรือไม่พร้อมใช้งาน');
-		}
-		throw new Error('รหัสนักเรียนหรือรหัสผ่านไม่ถูกต้อง');
-	}
+    if (!user) {
+        const probe = await db
+            .select({ status: appUser.status })
+            .from(appUser)
+            .innerJoin(studentProfile, eq(appUser.id, studentProfile.userId))
+            // @ts-ignore
+            .where(eq((studentProfile as any).nationalIdHash, hashValue))
+            .limit(1);
+        if (probe.length && String((probe[0] as any).status) !== 'active') {
+            throw new Error('บัญชีถูกระงับหรือไม่พร้อมใช้งาน');
+        }
+        throw new Error('เลขบัตรหรือรหัสผ่านไม่ถูกต้อง');
+    }
 
-	if (!user.passwordHash) {
-		throw new Error('บัญชีนี้ยังไม่ได้ตั้งค่ารหัสผ่าน');
-	}
+    if (!user.passwordHash) {
+        throw new Error('บัญชีนี้ยังไม่ได้ตั้งค่ารหัสผ่าน');
+    }
 
-	try {
-		if (!(await verify(user.passwordHash, password))) {
-			throw new Error('รหัสนักเรียนหรือรหัสผ่านไม่ถูกต้อง');
-		}
-	} catch {
-		throw new Error('รหัสนักเรียนหรือรหัสผ่านไม่ถูกต้อง');
-	}
+    try {
+        if (!(await verify(user.passwordHash, password))) {
+            throw new Error('เลขบัตรหรือรหัสผ่านไม่ถูกต้อง');
+        }
+    } catch {
+        throw new Error('เลขบัตรหรือรหัสผ่านไม่ถูกต้อง');
+    }
 
-	return user.id;
+    return user.id;
 }
 
 async function authenticateGuardian(nationalId: string, password?: string): Promise<string> {

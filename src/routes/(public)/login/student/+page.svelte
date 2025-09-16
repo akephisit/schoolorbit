@@ -7,13 +7,13 @@
 	import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '$lib/components/ui/card';
 	import { toast } from 'svelte-sonner';
 
-	let studentCode = $state('');
+	let nationalId = $state('');
 	let password = $state('');
 	let loading = $state(false);
 	let error = $state('');
 
 	async function handleLogin() {
-		if (!studentCode.trim() || !password.trim()) {
+		if (!nationalId.trim() || !password.trim()) {
 			error = 'กรุณากรอกข้อมูลให้ครบถ้วน';
 			return;
 		}
@@ -29,7 +29,7 @@
 				},
 				body: JSON.stringify({
 					actorType: 'student',
-					id: studentCode.trim(),
+					id: nationalId.trim(),
 					password: password
 				})
 			});
@@ -67,9 +67,7 @@
 			<h2 class="mt-6 text-3xl font-extrabold text-gray-900">
 				เข้าสู่ระบบสำหรับนักเรียน
 			</h2>
-			<p class="mt-2 text-sm text-gray-600">
-				ใช้รหัสนักเรียนและรหัสผ่านเพื่อเข้าสู่ระบบ
-			</p>
+			<p class="mt-2 text-sm text-gray-600">ใช้เลขบัตรประชาชนและรหัสผ่านเพื่อเข้าสู่ระบบ</p>
 		</div>
 
 		<Card>
@@ -80,13 +78,13 @@
 			<CardContent>
 				<form onsubmit={(e) => { e.preventDefault(); handleLogin(); }} class="space-y-6">
 					<div>
-						<Label for="studentCode">รหัสนักเรียน</Label>
+						<Label for="nationalId">เลขบัตรประชาชน</Label>
 						<Input
-							id="studentCode"
+							id="nationalId"
 							type="text"
-							bind:value={studentCode}
+							bind:value={nationalId}
 							onkeypress={handleKeyPress}
-							placeholder="กรอกรหัสนักเรียน"
+							placeholder="กรอกเลขบัตรประชาชน 13 หลัก"
 							required
 							class="mt-1"
 						/>

@@ -26,15 +26,18 @@ export const personnelProfile = pgTable('personnel_profile', {
 });
 
 export const studentProfile = pgTable('student_profile', {
-	id: uuid('id').primaryKey().defaultRandom(),
-	userId: uuid('user_id').notNull().references(() => appUser.id, { onDelete: 'cascade' }),
-	studentCode: varchar('student_code', { length: 50 }).notNull().unique(),
-	firstName: varchar('first_name', { length: 100 }),
-	lastName: varchar('last_name', { length: 100 }),
-	grade: varchar('grade', { length: 10 }),
-	classroom: varchar('classroom', { length: 20 }),
-	createdAt: timestamp('created_at').notNull().defaultNow(),
-	updatedAt: timestamp('updated_at').notNull().defaultNow()
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').notNull().references(() => appUser.id, { onDelete: 'cascade' }),
+    studentCode: varchar('student_code', { length: 50 }).unique(),
+    // Optional national ID fields added to support unified login by national ID
+    nationalIdHash: varchar('national_id_hash', { length: 64 }),
+    nationalIdEnc: varchar('national_id_enc', { length: 1024 }),
+    firstName: varchar('first_name', { length: 100 }),
+    lastName: varchar('last_name', { length: 100 }),
+    grade: varchar('grade', { length: 10 }),
+    classroom: varchar('classroom', { length: 20 }),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow()
 });
 
 export const guardianProfile = pgTable('guardian_profile', {
