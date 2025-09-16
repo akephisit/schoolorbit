@@ -99,12 +99,22 @@ async function ensurePersonnelProfile({ userId, nationalId, firstName, lastName,
   `;
 }
 
-async function ensureStudentProfile({ userId, studentCode, firstName, lastName, grade, classroom }) {
-  await sql`
-    INSERT INTO student_profile (user_id, student_code, first_name, last_name, grade, classroom)
-    VALUES (${userId}, ${studentCode}, ${firstName}, ${lastName}, ${grade}, ${classroom})
-    ON CONFLICT (student_code) DO NOTHING;
+async function ensureStudentProfile({ userId, nationalId, studentCode = null, firstName, lastName, grade, classroom }) {
+  const nationalIdHash = hashNationalId(nationalId);
+  const nationalIdEnc = encryptPII(nationalId);
+  // Try update by user_id first (1:1 logical relationship)
+  const updated = await sql`
+    UPDATE student_profile
+    SET national_id_hash = ${nationalIdHash}, national_id_enc = ${nationalIdEnc}, first_name = ${firstName}, last_name = ${lastName}, grade = ${grade}, classroom = ${classroom}, student_code = ${studentCode}
+    WHERE user_id = ${userId}
+    RETURNING id
   `;
+  if (!updated.length) {
+    await sql`
+      INSERT INTO student_profile (user_id, national_id_hash, national_id_enc, first_name, last_name, grade, classroom, student_code)
+      VALUES (${userId}, ${nationalIdHash}, ${nationalIdEnc}, ${firstName}, ${lastName}, ${grade}, ${classroom}, ${studentCode})
+    `;
+  }
 }
 
 async function ensureGuardianProfile({ userId, nationalId, firstName, lastName, phoneNumber, relation }) {
@@ -145,7 +155,8 @@ async function main() {
   });
   await ensureStudentProfile({
     userId: student.id,
-    studentCode: 'STU001',
+    nationalId: '2345678901234',
+    studentCode: null,
     firstName: 'สมหญิง',
     lastName: 'เรียนดี',
     grade: 'ม.6',
