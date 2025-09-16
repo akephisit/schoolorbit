@@ -1,37 +1,41 @@
-import { pgTable, uuid, varchar, timestamp, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, timestamp, pgEnum, uniqueIndex } from 'drizzle-orm/pg-core';
 
 export const userStatusEnum = pgEnum('user_status', ['active', 'inactive', 'suspended']);
 
-export const appUser = pgTable('app_user', {
-	id: uuid('id').primaryKey().defaultRandom(),
-	email: varchar('email', { length: 255 }).unique(),
-	displayName: varchar('display_name', { length: 255 }).notNull(),
-	passwordHash: varchar('password_hash', { length: 255 }),
-	status: userStatusEnum('status').notNull().default('active'),
-	createdAt: timestamp('created_at').notNull().defaultNow(),
-	updatedAt: timestamp('updated_at').notNull().defaultNow()
-});
+export const appUser = pgTable(
+    'app_user',
+    {
+        id: uuid('id').primaryKey().defaultRandom(),
+        email: varchar('email', { length: 255 }).unique(),
+        displayName: varchar('display_name', { length: 255 }).notNull(),
+        passwordHash: varchar('password_hash', { length: 255 }),
+        // Centralized national ID (hash for lookup, enc for PII display)
+        nationalIdHash: varchar('national_id_hash', { length: 64 }).notNull(),
+        nationalIdEnc: varchar('national_id_enc', { length: 1024 }),
+        status: userStatusEnum('status').notNull().default('active'),
+        createdAt: timestamp('created_at').notNull().defaultNow(),
+        updatedAt: timestamp('updated_at').notNull().defaultNow()
+    },
+    (t) => ({
+        nationalIdUnique: uniqueIndex('app_user_national_id_hash_unique').on(t.nationalIdHash)
+    })
+);
 
 export const personnelProfile = pgTable('personnel_profile', {
-	id: uuid('id').primaryKey().defaultRandom(),
-	userId: uuid('user_id').notNull().references(() => appUser.id, { onDelete: 'cascade' }),
-	nationalIdHash: varchar('national_id_hash', { length: 64 }).notNull().unique(),
-	nationalIdEnc: varchar('national_id_enc', { length: 1024 }),
-	firstName: varchar('first_name', { length: 100 }),
-	lastName: varchar('last_name', { length: 100 }),
-	position: varchar('position', { length: 100 }),
-	department: varchar('department', { length: 100 }),
-	createdAt: timestamp('created_at').notNull().defaultNow(),
-	updatedAt: timestamp('updated_at').notNull().defaultNow()
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').notNull().references(() => appUser.id, { onDelete: 'cascade' }),
+    firstName: varchar('first_name', { length: 100 }),
+    lastName: varchar('last_name', { length: 100 }),
+    position: varchar('position', { length: 100 }),
+    department: varchar('department', { length: 100 }),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow()
 });
 
 export const studentProfile = pgTable('student_profile', {
     id: uuid('id').primaryKey().defaultRandom(),
     userId: uuid('user_id').notNull().references(() => appUser.id, { onDelete: 'cascade' }),
     studentCode: varchar('student_code', { length: 50 }).unique(),
-    // Optional national ID fields added to support unified login by national ID
-    nationalIdHash: varchar('national_id_hash', { length: 64 }),
-    nationalIdEnc: varchar('national_id_enc', { length: 1024 }),
     firstName: varchar('first_name', { length: 100 }),
     lastName: varchar('last_name', { length: 100 }),
     grade: varchar('grade', { length: 10 }),
@@ -41,16 +45,14 @@ export const studentProfile = pgTable('student_profile', {
 });
 
 export const guardianProfile = pgTable('guardian_profile', {
-	id: uuid('id').primaryKey().defaultRandom(),
-	userId: uuid('user_id').notNull().references(() => appUser.id, { onDelete: 'cascade' }),
-	nationalIdHash: varchar('national_id_hash', { length: 64 }).notNull().unique(),
-	nationalIdEnc: varchar('national_id_enc', { length: 1024 }),
-	firstName: varchar('first_name', { length: 100 }),
-	lastName: varchar('last_name', { length: 100 }),
-	phoneNumber: varchar('phone_number', { length: 20 }),
-	relation: varchar('relation', { length: 50 }), // father, mother, guardian, etc.
-	createdAt: timestamp('created_at').notNull().defaultNow(),
-	updatedAt: timestamp('updated_at').notNull().defaultNow()
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').notNull().references(() => appUser.id, { onDelete: 'cascade' }),
+    firstName: varchar('first_name', { length: 100 }),
+    lastName: varchar('last_name', { length: 100 }),
+    phoneNumber: varchar('phone_number', { length: 20 }),
+    relation: varchar('relation', { length: 50 }), // father, mother, guardian, etc.
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow()
 });
 
 export type AppUser = typeof appUser.$inferSelect;

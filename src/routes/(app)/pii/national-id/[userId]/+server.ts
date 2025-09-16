@@ -1,7 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db } from '$lib/server/database';
-import { personnelProfile, guardianProfile } from '$lib/server/schema';
+import { appUser } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
 import { decryptPII, maskNationalId } from '$lib/server/crypto';
 
@@ -12,13 +12,9 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
   const userId = params.userId;
   const wantFull = url.searchParams.get('full') === '1';
 
-  // Load from personnel first, then guardian
-  const p = await db.select({ enc: personnelProfile.nationalIdEnc }).from(personnelProfile).where(eq(personnelProfile.userId, userId)).limit(1);
-  let enc: string | null = p[0]?.enc ?? null;
-  if (!enc) {
-    const g = await db.select({ enc: guardianProfile.nationalIdEnc }).from(guardianProfile).where(eq(guardianProfile.userId, userId)).limit(1);
-    enc = g[0]?.enc ?? null;
-  }
+  // Read centralized PII from app_user
+  const rows = await db.select({ enc: appUser.nationalIdEnc }).from(appUser).where(eq(appUser.id, userId)).limit(1);
+  const enc: string | null = rows[0]?.enc ?? null;
 
   if (!enc) return json({ data: { masked: null, full: null } });
 
@@ -34,4 +30,3 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
     return error(500, 'ไม่สามารถถอดรหัสข้อมูลได้');
   }
 };
-

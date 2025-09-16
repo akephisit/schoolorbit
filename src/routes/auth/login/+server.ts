@@ -4,17 +4,17 @@ import { eq, and, sql } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 import { getConfig } from '$lib/server/config';
 import { db } from '$lib/server/database';
-import { appUser, personnelProfile, studentProfile, guardianProfile, role, userRole, rolePermission, permission } from '$lib/server/schema';
+import { appUser, role, userRole, rolePermission, permission } from '$lib/server/schema';
 import { JwtService } from '$lib/server/jwt';
 import { RefreshService } from '$lib/server/refresh';
 import { hashNationalId, generateSecureToken } from '$lib/server/crypto';
 import { createCookieConfig, createAccessTokenCookie, createRefreshTokenCookie, createCsrfCookie } from '$lib/server/cookies';
 
 interface LoginRequest {
-	actorType: string; // "personnel", "student", "guardian"
-	id: string; // national_id for personnel/guardian and student (preferred). For backward-compat student_code also accepted.
-	password?: string;
-	otp?: string;
+    // Unified login by national ID
+    id: string;
+    password?: string;
+    otp?: string;
 }
 
 interface LoginResponse {
@@ -40,15 +40,14 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 	}
 
 	// Validate request
-	if (!body.actorType || !body.id) {
-		return error(400, 'กรุณากรอกข้อมูลให้ครบถ้วน');
-	}
+    if (!body.id) {
+        return error(400, 'กรุณากรอกข้อมูลให้ครบถ้วน');
+    }
 
 	// Normalize inputs
-	const actorType = body.actorType.trim();
-	let rawId = body.id.trim();
-	let password = body.password?.toString();
-	const otp = body.otp?.toString();
+    let rawId = body.id.trim();
+    let password = body.password?.toString();
+    const otp = body.otp?.toString();
 
 	if (password !== undefined && password.trim() === '') {
 		return error(400, 'กรุณากรอกรหัสผ่าน');
@@ -59,26 +58,13 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 		return error(400, 'ขออภัย ระบบยังไม่รองรับการเข้าสู่ระบบด้วย OTP');
 	}
 
-	
-	let userId: string;
-	try {
-		switch (actorType) {
-			case 'personnel':
-				userId = await authenticatePersonnel(rawId, password);
-				break;
-			case 'student':
-				userId = await authenticateStudent(rawId, password);
-				break;
-			case 'guardian':
-				userId = await authenticateGuardian(rawId, password);
-				break;
-			default:
-				return error(400, 'ประเภทผู้ใช้ไม่ถูกต้อง');
-		}
-	} catch (e) {
-		const msg = e instanceof Error ? e.message : 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ';
-		return error(400, msg);
-	}
+    let userId: string;
+    try {
+        userId = await authenticateByNationalId(rawId, password);
+    } catch (e) {
+        const msg = e instanceof Error ? e.message : 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ';
+        return error(400, msg);
+    }
 
     // Load roles and permissions via RBAC tables
     const { roles, permissions } = await getUserRolesAndPerms(userId);
@@ -148,102 +134,42 @@ async function getUserRolesAndPerms(userId: string): Promise<{ roles: string[]; 
     return { roles, permissions };
 }
 
-async function authenticatePersonnel(nationalId: string, password?: string): Promise<string> {
-	// Input format: 13 digits
-	const digits = nationalId.replace(/\D/g, '');
-	if (digits.length !== 13) {
-		throw new Error('เลขบัตรประชาชนไม่ถูกต้อง');
-	}
-	if (!password) {
-		throw new Error('กรุณากรอกรหัสผ่าน');
-	}
-
-    // Use current configured salt only
-    const hashValue = hashNationalId(digits);
-
-	let result;
-	try {
-		result = await db
-			.select({
-				id: appUser.id,
-				passwordHash: appUser.passwordHash
-			})
-			.from(appUser)
-			.innerJoin(personnelProfile, eq(appUser.id, personnelProfile.userId))
-            .where(and(
-                eq(personnelProfile.nationalIdHash, hashValue),
-                // Cross-env: enum/text
-                sql`${appUser.status}::text = ${'active'}`
-            ))
-			.limit(1);
-    } catch (err) {
-        console.error('Personnel auth query error:', err);
-        throw new Error('เกิดข้อผิดพลาดในการยืนยันตัวตน');
-    }
-
-	let user = result[0];
-	if (!user) {
-		// If not found as active, check if exists but inactive
-        const probe = await db
-            .select({ status: appUser.status })
-            .from(appUser)
-            .innerJoin(personnelProfile, eq(appUser.id, personnelProfile.userId))
-            .where(eq(personnelProfile.nationalIdHash, hashValue))
-            .limit(1);
-		if (probe.length && String((probe[0] as any).status) !== 'active') {
-			throw new Error('บัญชีถูกระงับหรือไม่พร้อมใช้งาน');
-		}
-		throw new Error('เลขบัตรหรือรหัสผ่านไม่ถูกต้อง');
-	}
-
-	if (!user.passwordHash) {
-		throw new Error('บัญชีนี้ยังไม่ได้ตั้งค่ารหัสผ่าน');
-	}
-	try {
-		if (!(await verify(user.passwordHash, password))) {
-			throw new Error('เลขบัตรหรือรหัสผ่านไม่ถูกต้อง');
-		}
-	} catch {
-		throw new Error('เลขบัตรหรือรหัสผ่านไม่ถูกต้อง');
-	}
-	return user.id;
-}
-
-async function authenticateStudent(nationalId: string, password?: string): Promise<string> {
-    if (!password) {
-        throw new Error('กรุณากรอกรหัสผ่าน');
-    }
-
-    // Require national ID (13 digits)
+async function authenticateByNationalId(nationalId: string, password?: string): Promise<string> {
     const digits = nationalId.replace(/\D/g, '');
     if (digits.length !== 13) {
         throw new Error('เลขบัตรประชาชนไม่ถูกต้อง');
+    }
+    if (!password) {
+        throw new Error('กรุณากรอกรหัสผ่าน');
     }
 
     const hashValue = hashNationalId(digits);
     let result;
     try {
         result = await db
-            .select({ id: appUser.id, passwordHash: appUser.passwordHash })
+            .select({
+                id: appUser.id,
+                passwordHash: appUser.passwordHash
+            })
             .from(appUser)
-            .innerJoin(studentProfile, eq(appUser.id, studentProfile.userId))
-            // @ts-ignore: field added by migration
-            .where(and(eq((studentProfile as any).nationalIdHash, hashValue), sql`${appUser.status}::text = ${'active'}`))
+            .where(and(
+                eq(appUser.nationalIdHash, hashValue),
+                // Cross-env: enum/text
+                sql`${appUser.status}::text = ${'active'}`
+            ))
             .limit(1);
     } catch (err) {
-        console.error('Student auth query error:', err);
+        console.error('Auth query error:', err);
         throw new Error('เกิดข้อผิดพลาดในการยืนยันตัวตน');
     }
 
     const user = result[0];
-
     if (!user) {
+        // Check if user exists but inactive for clearer message
         const probe = await db
             .select({ status: appUser.status })
             .from(appUser)
-            .innerJoin(studentProfile, eq(appUser.id, studentProfile.userId))
-            // @ts-ignore
-            .where(eq((studentProfile as any).nationalIdHash, hashValue))
+            .where(eq(appUser.nationalIdHash, hashValue))
             .limit(1);
         if (probe.length && String((probe[0] as any).status) !== 'active') {
             throw new Error('บัญชีถูกระงับหรือไม่พร้อมใช้งาน');
@@ -254,7 +180,6 @@ async function authenticateStudent(nationalId: string, password?: string): Promi
     if (!user.passwordHash) {
         throw new Error('บัญชีนี้ยังไม่ได้ตั้งค่ารหัสผ่าน');
     }
-
     try {
         if (!(await verify(user.passwordHash, password))) {
             throw new Error('เลขบัตรหรือรหัสผ่านไม่ถูกต้อง');
@@ -262,66 +187,5 @@ async function authenticateStudent(nationalId: string, password?: string): Promi
     } catch {
         throw new Error('เลขบัตรหรือรหัสผ่านไม่ถูกต้อง');
     }
-
     return user.id;
-}
-
-async function authenticateGuardian(nationalId: string, password?: string): Promise<string> {
-	const digits = nationalId.replace(/\D/g, '');
-	if (digits.length !== 13) {
-		throw new Error('เลขบัตรประชาชนไม่ถูกต้อง');
-	}
-	if (!password) {
-		throw new Error('กรุณากรอกรหัสผ่าน');
-	}
-
-    const hashValue = hashNationalId(digits);
-	
-    let result;
-    try {
-        result = await db
-            .select({
-                id: appUser.id,
-                passwordHash: appUser.passwordHash
-            })
-            .from(appUser)
-            .innerJoin(guardianProfile, eq(appUser.id, guardianProfile.userId))
-            .where(and(
-                eq(guardianProfile.nationalIdHash, hashValue),
-                sql`${appUser.status}::text = ${'active'}`
-            ))
-            .limit(1);
-    } catch (err) {
-        console.error('Guardian auth query error:', err);
-        throw new Error('เกิดข้อผิดพลาดในการยืนยันตัวตน');
-    }
-
-	const user = result[0];
-
-	if (!user) {
-        const probe = await db
-            .select({ status: appUser.status })
-            .from(appUser)
-            .innerJoin(guardianProfile, eq(appUser.id, guardianProfile.userId))
-            .where(eq(guardianProfile.nationalIdHash, hashValue))
-            .limit(1);
-		if (probe.length && String((probe[0] as any).status) !== 'active') {
-			throw new Error('บัญชีถูกระงับหรือไม่พร้อมใช้งาน');
-		}
-		throw new Error('เลขบัตรหรือรหัสผ่านไม่ถูกต้อง');
-	}
-
-	if (!user.passwordHash) {
-		throw new Error('บัญชีนี้ยังไม่ได้ตั้งค่ารหัสผ่าน');
-	}
-
-	try {
-		if (!(await verify(user.passwordHash, password))) {
-			throw new Error('เลขบัตรหรือรหัสผ่านไม่ถูกต้อง');
-		}
-	} catch {
-		throw new Error('เลขบัตรหรือรหัสผ่านไม่ถูกต้อง');
-	}
-
-	return user.id;
 }
