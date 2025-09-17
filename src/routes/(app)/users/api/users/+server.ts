@@ -5,15 +5,19 @@ import { appUser, userRole, role } from '$lib/server/schema';
 import { eq, ilike, inArray, or } from 'drizzle-orm';
 import { hash } from 'argon2';
 import { hashNationalId, encryptPII } from '$lib/server/crypto';
+import {
+  buildDisplayName,
+  parseCreateUserInput,
+  parseListUsersQuery,
+  validateRoleCodes
+} from '$lib/server/validators/users';
 
 export const GET: RequestHandler = async ({ locals, url }) => {
   if (!locals.me?.data?.perms?.includes('user:manage')) {
     return error(403, 'Forbidden');
   }
 
-  const q = url.searchParams.get('q')?.trim();
-  const page = Math.max(1, Number(url.searchParams.get('page') || '1'));
-  const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit') || '50')));
+  const { q, page, limit } = parseListUsersQuery(url.searchParams);
   const offset = (page - 1) * limit;
 
   const where = q
@@ -65,49 +69,23 @@ export const POST: RequestHandler = async ({ locals, request }) => {
   if (!locals.me?.data?.perms?.includes('user:manage')) {
     return error(403, 'Forbidden');
   }
-  const body = await request.json().catch(() => ({}));
-  const email = typeof body.email === 'string' ? body.email.trim() : null;
-  const displayName = typeof body.displayName === 'string' ? body.displayName.trim() : null;
-  const title = typeof body.title === 'string' ? body.title.trim() : null;
-  const firstName = typeof body.firstName === 'string' ? body.firstName.trim() : null;
-  const lastName = typeof body.lastName === 'string' ? body.lastName.trim() : null;
-  const password = typeof body.password === 'string' ? body.password : null;
-  const nationalIdRaw = typeof body.nationalId === 'string' ? body.nationalId.trim() : null;
-  let rolesInput: string[] = Array.isArray(body.roles) ? body.roles : [];
-  // Enforce fixed roles set
-  const allowed = new Set(['staff', 'student', 'parent']);
-  rolesInput = rolesInput.filter((r) => allowed.has(r));
-  const status = (['active', 'inactive', 'suspended'] as const).includes(body.status)
-    ? body.status
-    : 'active';
-
-  const resolvedDisplayName = displayName || [title, firstName, lastName].filter(Boolean).join(' ').trim();
-
-  if (!email || !resolvedDisplayName) {
-    return error(400, 'ต้องระบุ email และชื่อที่จะแสดงผล');
-  }
-  if (!firstName || !lastName) {
-    return error(400, 'ต้องระบุชื่อและนามสกุล');
-  }
-  if (!nationalIdRaw) {
-    return error(400, 'ต้องระบุเลขบัตรประชาชน');
+  const jsonBody = await request.json().catch(() => ({}));
+  const parsed = parseCreateUserInput(jsonBody);
+  if (!parsed.ok) {
+    return error(400, parsed.message);
   }
 
-  const digits = nationalIdRaw.replace(/\D/g, '');
-  if (digits.length !== 13) {
-    return error(400, 'เลขบัตรประชาชนไม่ถูกต้อง');
+  const { email, displayName, title, firstName, lastName, password, nationalId, roles, status } = parsed.data;
+
+  const resolvedDisplayName = displayName ?? buildDisplayName({ title, firstName, lastName });
+  if (!resolvedDisplayName) {
+    return error(400, 'กรุณาระบุชื่อที่จะแสดงผลหรือใส่คำนำหน้า/ชื่อ/นามสกุลให้ครบ');
   }
 
-  let passwordHash: string | null = null;
-  if (password && password.length >= 8) {
-    passwordHash = await hash(password);
-  }
+  const passwordHash = password ? await hash(password) : null;
+  const nationalIdHash = hashNationalId(nationalId);
+  const nationalIdEnc = encryptPII(nationalId);
 
-  // prepare national id fields
-  const nationalIdHash = hashNationalId(digits);
-  const nationalIdEnc = encryptPII(digits);
-
-  // insert user
   let inserted;
   try {
     const ins = await db
@@ -119,7 +97,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
         firstName,
         lastName,
         passwordHash,
-        status: status as any,
+        status,
         nationalIdHash,
         nationalIdEnc
       })
@@ -130,10 +108,11 @@ export const POST: RequestHandler = async ({ locals, request }) => {
   }
 
   // map role codes -> ids
-  if (rolesInput.length) {
-    const rws = await db.select().from(role).where(inArray(role.code, rolesInput));
+  const roleCodes = validateRoleCodes(roles);
+  if (roleCodes.length) {
+    const rws = await db.select().from(role).where(inArray(role.code, roleCodes));
     const roleIdByCode = new Map(rws.map(r => [r.code, r.id] as const));
-    const vals = rolesInput
+    const vals = roleCodes
       .filter(c => roleIdByCode.has(c))
       .map(c => ({ userId: inserted.id, roleId: roleIdByCode.get(c)! }));
     if (vals.length) await db.insert(userRole).values(vals);

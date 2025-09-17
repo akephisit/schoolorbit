@@ -4,19 +4,20 @@ import { db } from '$lib/server/database';
 import { appUser } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
 import { hash } from 'argon2';
+import { parsePasswordChangeInput } from '$lib/server/validators/users';
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {
   if (!locals.me?.data?.perms?.includes('user:manage')) {
     return error(403, 'Forbidden');
   }
   const id = params.id;
-  const body = await request.json().catch(() => ({}));
-  const password = typeof body.password === 'string' ? body.password : '';
-  if (password.length < 8) {
-    return error(400, 'รหัสผ่านต้องอย่างน้อย 8 ตัวอักษร');
+  const jsonBody = await request.json().catch(() => ({}));
+  const parsed = parsePasswordChangeInput(jsonBody);
+  if (!parsed.ok) {
+    return error(400, parsed.message);
   }
-  const passwordHash = await hash(password);
+
+  const passwordHash = await hash(parsed.data.password);
   await db.update(appUser).set({ passwordHash }).where(eq(appUser.id, id));
   return json({ ok: true });
 };
-
