@@ -9,7 +9,16 @@
   import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select';
   import { toast } from 'svelte-sonner';
 
-  type UserRow = { id: string; email: string | null; displayName: string; status: string; roles: string[] };
+  type UserRow = {
+    id: string;
+    email: string | null;
+    displayName: string;
+    title: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    status: string;
+    roles: string[];
+  };
   type RoleOpt = { id: string; code: string; name: string };
 
   let roles = $state<RoleOpt[]>([]);
@@ -20,7 +29,10 @@
 
   // create form
   let cEmail = $state('');
-  let cName = $state('');
+  let cTitle = $state('');
+  let cFirstName = $state('');
+  let cLastName = $state('');
+  let cDisplayName = $state('');
   let cPassword = $state('');
   let cNationalId = $state('');
   let cRoles = $state(new Set<string>());
@@ -47,21 +59,26 @@
   $effect(() => { (async () => { await Promise.all([loadRoles(), loadUsers()]); })(); });
 
   async function createUser() {
-    if (!cEmail.trim() || !cName.trim() || !cNationalId.trim()) { toast.error('กรุณากรอกอีเมล ชื่อ และเลขบัตร'); return; }
+    if (!cEmail.trim() || !cFirstName.trim() || !cLastName.trim() || !cNationalId.trim()) { toast.error('กรุณากรอกอีเมล ชื่อ นามสกุล และเลขบัตร'); return; }
     const digits = cNationalId.replace(/\D/g, '');
     if (digits.length !== 13) { toast.error('เลขบัตรประชาชนต้องมี 13 หลัก'); return; }
+    const displayName = (cDisplayName.trim() || [cTitle, cFirstName, cLastName].filter(Boolean).join(' ')).trim();
+    if (!displayName) { toast.error('กรุณากรอกชื่อแสดงผลหรือระบุให้ครบ'); return; }
     creating = true;
     try {
       const payload = {
         email: cEmail.trim(),
-        displayName: cName.trim(),
+        displayName,
+        title: cTitle.trim() || undefined,
+        firstName: cFirstName.trim(),
+        lastName: cLastName.trim(),
         password: cPassword || undefined,
         nationalId: digits,
         roles: Array.from(cRoles)
       };
       const res = await fetch('/users/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       if (!res.ok) throw new Error(await res.text());
-      cEmail = ''; cName = ''; cPassword = ''; cNationalId = ''; cRoles = new Set();
+      cEmail = ''; cTitle = ''; cFirstName = ''; cLastName = ''; cDisplayName = ''; cPassword = ''; cNationalId = ''; cRoles = new Set();
       await loadUsers();
       toast.success('สร้างผู้ใช้สำเร็จ');
     } catch (e) {
@@ -73,7 +90,10 @@
 
   // editing state per row
   let editing = $state<Record<string, boolean>>({});
-  let editName = $state<Record<string, string>>({});
+  let editTitle = $state<Record<string, string>>({});
+  let editFirstName = $state<Record<string, string>>({});
+  let editLastName = $state<Record<string, string>>({});
+  let editDisplayName = $state<Record<string, string>>({});
   let editEmail = $state<Record<string, string>>({});
   let editStatus = $state<Record<string, string>>({});
   let editPassword = $state<Record<string, string>>({});
@@ -90,7 +110,10 @@
 
   function startEdit(u: UserRow) {
     editing[u.id] = true;
-    editName[u.id] = u.displayName;
+    editTitle[u.id] = u.title ?? '';
+    editFirstName[u.id] = u.firstName ?? '';
+    editLastName[u.id] = u.lastName ?? '';
+    editDisplayName[u.id] = u.displayName;
     editEmail[u.id] = u.email || '';
     editStatus[u.id] = u.status;
     editPassword[u.id] = '';
@@ -99,10 +122,32 @@
 
   function cancelEdit(id: string) {
     delete editing[id];
+    delete editTitle[id];
+    delete editFirstName[id];
+    delete editLastName[id];
+    delete editDisplayName[id];
+    delete editEmail[id];
+    delete editStatus[id];
+    delete editPassword[id];
+    delete editRoles[id];
   }
 
   async function saveEdit(u: UserRow) {
-    const upd = { email: editEmail[u.id], displayName: editName[u.id], status: editStatus[u.id] };
+    const title = (editTitle[u.id] ?? '').trim();
+    const firstName = (editFirstName[u.id] ?? '').trim();
+    const lastName = (editLastName[u.id] ?? '').trim();
+    if (!firstName || !lastName) { toast.error('กรุณากรอกชื่อและนามสกุล'); return; }
+    const displayNameInput = (editDisplayName[u.id] ?? '').trim();
+    const displayName = (displayNameInput || [title, firstName, lastName].filter(Boolean).join(' ')).trim();
+    if (!displayName) { toast.error('กรุณากรอกชื่อแสดงผล'); return; }
+    const upd = {
+      email: editEmail[u.id]?.trim(),
+      title,
+      firstName,
+      lastName,
+      displayName,
+      status: editStatus[u.id]
+    };
     const res = await fetch(`/users/api/users/${u.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(upd) });
     if (!res.ok) { toast.error('บันทึกข้อมูลผู้ใช้ไม่สำเร็จ'); return; }
     // roles
@@ -115,7 +160,7 @@
       if (!passRes.ok) { toast.error('เปลี่ยนรหัสผ่านไม่สำเร็จ'); }
     }
     await loadUsers();
-    delete editing[u.id];
+    cancelEdit(u.id);
     toast.success('บันทึกข้อมูลสำเร็จ');
   }
 
@@ -146,12 +191,29 @@
       <CardDescription>ใส่อีเมล ชื่อ และตัวเลือกบทบาท เริ่มต้น</CardDescription>
     </CardHeader>
     <CardContent class="space-y-3">
-      <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
-        <Input placeholder="อีเมล" bind:value={cEmail} />
-        <Input placeholder="ชื่อแสดงผล" bind:value={cName} />
-        <Input placeholder="รหัสผ่าน (อย่างน้อย 8 ตัว)" type="password" bind:value={cPassword} />
-        <Input placeholder="เลขบัตรประชาชน 13 หลัก" bind:value={cNationalId} maxlength={13} />
-        <div class="flex flex-wrap items-center gap-3">
+      <div class="grid grid-cols-1 md:grid-cols-6 gap-3">
+        <div class="md:col-span-2">
+          <Input placeholder="อีเมล" bind:value={cEmail} />
+        </div>
+        <div>
+          <Input placeholder="คำนำหน้า (เช่น นาย)" bind:value={cTitle} />
+        </div>
+        <div>
+          <Input placeholder="ชื่อ" bind:value={cFirstName} />
+        </div>
+        <div>
+          <Input placeholder="นามสกุล" bind:value={cLastName} />
+        </div>
+        <div class="md:col-span-2">
+          <Input placeholder="ชื่อแสดงผล (เว้นว่างจะใช้ข้อมูลด้านบน)" bind:value={cDisplayName} />
+        </div>
+        <div class="md:col-span-2">
+          <Input placeholder="รหัสผ่าน (อย่างน้อย 8 ตัว)" type="password" bind:value={cPassword} />
+        </div>
+        <div class="md:col-span-2">
+          <Input placeholder="เลขบัตรประชาชน 13 หลัก" bind:value={cNationalId} maxlength={13} />
+        </div>
+        <div class="md:col-span-6 flex flex-wrap items-center gap-3">
           {#each roles as r}
             <div class="flex items-center gap-2" role="button" tabindex="0"
                  onclick={() => { cRoles.has(r.code) ? cRoles.delete(r.code) : cRoles.add(r.code); cRoles = new Set(cRoles); }}
@@ -199,9 +261,19 @@
                 </TableCell>
                 <TableCell>
                   {#if editing[u.id]}
-                    <Input bind:value={editName[u.id]} />
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
+                      <Input placeholder="คำนำหน้า" bind:value={editTitle[u.id]} />
+                      <Input placeholder="ชื่อ" bind:value={editFirstName[u.id]} />
+                      <Input placeholder="นามสกุล" bind:value={editLastName[u.id]} />
+                      <Input placeholder="ชื่อแสดงผล" bind:value={editDisplayName[u.id]} />
+                    </div>
                   {:else}
-                    {u.displayName}
+                    <div class="space-y-1">
+                      <div>{u.displayName}</div>
+                      {#if u.title || u.firstName || u.lastName}
+                        <div class="text-xs text-muted-foreground">{[u.title, u.firstName, u.lastName].filter(Boolean).join(' ')}</div>
+                      {/if}
+                    </div>
                   {/if}
                 </TableCell>
                 <TableCell>

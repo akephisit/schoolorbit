@@ -8,6 +8,9 @@ export const appUser = pgTable(
         id: uuid('id').primaryKey().defaultRandom(),
         email: varchar('email', { length: 255 }).unique(),
         displayName: varchar('display_name', { length: 255 }).notNull(),
+        title: varchar('title', { length: 32 }),
+        firstName: varchar('first_name', { length: 100 }),
+        lastName: varchar('last_name', { length: 100 }),
         passwordHash: varchar('password_hash', { length: 255 }),
         // Centralized national ID (hash for lookup, enc for PII display)
         nationalIdHash: varchar('national_id_hash', { length: 64 }).notNull(),

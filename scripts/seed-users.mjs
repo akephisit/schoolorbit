@@ -78,15 +78,22 @@ function encryptPII(plaintext) {
   return [iv.toString('base64'), ct.toString('base64'), tag.toString('base64')].join('.');
 }
 
-async function upsertUser({ email, displayName, passwordHash, status = 'active', nationalId }) {
+async function upsertUser({ email, displayName, title, firstName, lastName, passwordHash, status = 'active', nationalId }) {
   const nationalIdHash = hashNationalId(nationalId);
   const nationalIdEnc = encryptPII(nationalId);
+  const resolvedDisplayName = (displayName ?? '').trim() || [title, firstName, lastName].filter(Boolean).join(' ').trim();
+  if (!resolvedDisplayName) {
+    throw new Error('displayName or name parts must be provided for user seeding');
+  }
   // Insert or update user with centralized national id fields
   const res = await sql`
-    INSERT INTO app_user (email, display_name, password_hash, status, national_id_hash, national_id_enc)
-    VALUES (${email}, ${displayName}, ${passwordHash}, ${status}, ${nationalIdHash}, ${nationalIdEnc})
+    INSERT INTO app_user (email, display_name, title, first_name, last_name, password_hash, status, national_id_hash, national_id_enc)
+    VALUES (${email}, ${resolvedDisplayName}, ${title ?? null}, ${firstName ?? null}, ${lastName ?? null}, ${passwordHash}, ${status}, ${nationalIdHash}, ${nationalIdEnc})
     ON CONFLICT (email) DO UPDATE SET
       display_name = EXCLUDED.display_name,
+      title = EXCLUDED.title,
+      first_name = EXCLUDED.first_name,
+      last_name = EXCLUDED.last_name,
       password_hash = EXCLUDED.password_hash,
       status = EXCLUDED.status,
       national_id_hash = EXCLUDED.national_id_hash,
@@ -144,6 +151,9 @@ async function main() {
   const staff = await upsertUser({
     email: 'staff@school.test',
     displayName: 'เจ้าหน้าที่สมชาย',
+    title: 'นาย',
+    firstName: 'สมชาย',
+    lastName: 'ใจดี',
     passwordHash,
     nationalId: '1234567890123'
   });
@@ -160,6 +170,9 @@ async function main() {
   const student = await upsertUser({
     email: 'student@school.test',
     displayName: 'นักเรียนสมหญิง',
+    title: 'นางสาว',
+    firstName: 'สมหญิง',
+    lastName: 'เรียนดี',
     passwordHash,
     nationalId: '2345678901234'
   });
@@ -177,6 +190,9 @@ async function main() {
   const parent = await upsertUser({
     email: 'parent@school.test',
     displayName: 'ผู้ปกครองสมศรี',
+    title: 'นาง',
+    firstName: 'สมศรี',
+    lastName: 'รักลูก',
     passwordHash,
     nationalId: '9876543210123'
   });

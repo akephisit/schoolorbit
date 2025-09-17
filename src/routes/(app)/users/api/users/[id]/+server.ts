@@ -12,7 +12,31 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
   const body = await request.json().catch(() => ({}));
   const patch: any = {};
   if (typeof body.email === 'string') patch.email = body.email.trim();
-  if (typeof body.displayName === 'string') patch.displayName = body.displayName.trim();
+  if (typeof body.displayName === 'string') {
+    const val = body.displayName.trim();
+    if (!val) {
+      return error(400, 'displayName ห้ามว่าง');
+    }
+    patch.displayName = val;
+  }
+  if (typeof body.title === 'string') {
+    const val = body.title.trim();
+    patch.title = val || null;
+  }
+  if (typeof body.firstName === 'string') {
+    const val = body.firstName.trim();
+    if (!val) {
+      return error(400, 'ชื่อห้ามว่าง');
+    }
+    patch.firstName = val;
+  }
+  if (typeof body.lastName === 'string') {
+    const val = body.lastName.trim();
+    if (!val) {
+      return error(400, 'นามสกุลห้ามว่าง');
+    }
+    patch.lastName = val;
+  }
   if (typeof body.status === 'string' && ['active', 'inactive', 'suspended'].includes(body.status)) patch.status = body.status;
 
   if (Object.keys(patch).length === 0) {
@@ -35,4 +59,3 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
   await db.delete(appUser).where(eq(appUser.id, id));
   return new Response(null, { status: 204 });
 };
-

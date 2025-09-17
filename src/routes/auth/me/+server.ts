@@ -8,6 +8,9 @@ interface UserInfo {
 	id: string;
 	email?: string;
 	displayName: string;
+	title?: string | null;
+	firstName?: string | null;
+	lastName?: string | null;
 }
 
 interface MeResponse {
@@ -28,7 +31,10 @@ export const GET: RequestHandler = async ({ locals }) => {
 	const user = await db.select({
 		id: appUser.id,
 		email: appUser.email,
-		displayName: appUser.displayName
+		displayName: appUser.displayName,
+		title: appUser.title,
+		firstName: appUser.firstName,
+		lastName: appUser.lastName
 	})
 	.from(appUser)
 	.where(eq(appUser.id, locals.me.data.user.id))
@@ -44,7 +50,10 @@ export const GET: RequestHandler = async ({ locals }) => {
 			user: {
 				id: userData.id,
 				email: userData.email ?? undefined,
-				displayName: userData.displayName
+				displayName: userData.displayName,
+				title: userData.title,
+				firstName: userData.firstName,
+				lastName: userData.lastName
 			},
 			roles: locals.me.data.roles || [],
 			perms: locals.me.data.perms || [],

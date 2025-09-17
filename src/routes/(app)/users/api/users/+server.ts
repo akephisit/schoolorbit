@@ -2,7 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db } from '$lib/server/database';
 import { appUser, userRole, role } from '$lib/server/schema';
-import { and, eq, ilike, inArray, sql } from 'drizzle-orm';
+import { eq, ilike, inArray, or } from 'drizzle-orm';
 import { hash } from 'argon2';
 import { hashNationalId, encryptPII } from '$lib/server/crypto';
 
@@ -17,13 +17,27 @@ export const GET: RequestHandler = async ({ locals, url }) => {
   const offset = (page - 1) * limit;
 
   const where = q
-    ? ilike(appUser.displayName, `%${q}%`)
+    ? or(
+        ilike(appUser.displayName, `%${q}%`),
+        ilike(appUser.firstName, `%${q}%`),
+        ilike(appUser.lastName, `%${q}%`),
+        ilike(appUser.title, `%${q}%`)
+      )
     : undefined;
 
-  const users = await db
-    .select({ id: appUser.id, email: appUser.email, displayName: appUser.displayName, status: appUser.status })
-    .from(appUser)
-    .where(where as any)
+  const baseQuery = db
+    .select({
+      id: appUser.id,
+      email: appUser.email,
+      displayName: appUser.displayName,
+      title: appUser.title,
+      firstName: appUser.firstName,
+      lastName: appUser.lastName,
+      status: appUser.status
+    })
+    .from(appUser);
+
+  const users = await (where ? baseQuery.where(where) : baseQuery)
     .offset(offset)
     .limit(limit);
 
@@ -54,6 +68,9 @@ export const POST: RequestHandler = async ({ locals, request }) => {
   const body = await request.json().catch(() => ({}));
   const email = typeof body.email === 'string' ? body.email.trim() : null;
   const displayName = typeof body.displayName === 'string' ? body.displayName.trim() : null;
+  const title = typeof body.title === 'string' ? body.title.trim() : null;
+  const firstName = typeof body.firstName === 'string' ? body.firstName.trim() : null;
+  const lastName = typeof body.lastName === 'string' ? body.lastName.trim() : null;
   const password = typeof body.password === 'string' ? body.password : null;
   const nationalIdRaw = typeof body.nationalId === 'string' ? body.nationalId.trim() : null;
   let rolesInput: string[] = Array.isArray(body.roles) ? body.roles : [];
@@ -64,8 +81,13 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     ? body.status
     : 'active';
 
-  if (!email || !displayName) {
-    return error(400, 'email และ displayName ต้องระบุ');
+  const resolvedDisplayName = displayName || [title, firstName, lastName].filter(Boolean).join(' ').trim();
+
+  if (!email || !resolvedDisplayName) {
+    return error(400, 'ต้องระบุ email และชื่อที่จะแสดงผล');
+  }
+  if (!firstName || !lastName) {
+    return error(400, 'ต้องระบุชื่อและนามสกุล');
   }
   if (!nationalIdRaw) {
     return error(400, 'ต้องระบุเลขบัตรประชาชน');
@@ -90,7 +112,17 @@ export const POST: RequestHandler = async ({ locals, request }) => {
   try {
     const ins = await db
       .insert(appUser)
-      .values({ email, displayName, passwordHash, status: status as any, nationalIdHash, nationalIdEnc })
+      .values({
+        email,
+        displayName: resolvedDisplayName,
+        title,
+        firstName,
+        lastName,
+        passwordHash,
+        status: status as any,
+        nationalIdHash,
+        nationalIdEnc
+      })
       .returning({ id: appUser.id });
     inserted = ins[0];
   } catch (e) {
