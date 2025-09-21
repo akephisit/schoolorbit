@@ -4,9 +4,9 @@ import { db } from '$lib/server/database';
 import { appUser } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
 import { decryptPII, maskNationalId } from '$lib/server/crypto';
+import { authorize } from '$lib/server/authorization';
 
 export const GET: RequestHandler = async ({ locals, params, url }) => {
-  const requesterPerms = locals.me?.data?.perms || [] as string[];
   if (!locals.me?.data?.user?.id) return error(401, 'Unauthorized');
 
   const userId = params.userId;
@@ -21,7 +21,7 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
   try {
     const nid = decryptPII(enc);
     if (wantFull) {
-      if (!requesterPerms.includes('pii:view')) return error(403, 'Forbidden');
+      await authorize(locals, 'pii:view');
       return json({ data: { masked: maskNationalId(nid), full: nid } });
     }
     return json({ data: { masked: maskNationalId(nid), full: null } });

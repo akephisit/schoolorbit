@@ -1,11 +1,9 @@
 import type { PageServerLoad } from './$types';
-import { error } from '@sveltejs/kit';
 import { assertFeatureEnabled } from '$lib/server/features';
+import { authorize } from '$lib/server/authorization';
 
 export const load: PageServerLoad = async ({ locals }) => {
-  if (!locals.me?.data?.perms?.includes('user:manage')) {
-    throw error(403, 'Forbidden');
-  }
+  await authorize(locals, 'user:manage');
   await assertFeatureEnabled(locals, 'role-management');
   return {};
 };

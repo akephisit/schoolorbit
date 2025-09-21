@@ -5,16 +5,17 @@ import { permission } from '$lib/server/schema';
 import { validationError } from '$lib/server/validators/core';
 import { parsePermissionCreateInput } from '$lib/server/validators/roles';
 import { assertFeatureEnabled } from '$lib/server/features';
+import { authorize } from '$lib/server/authorization';
 
 export const GET: RequestHandler = async ({ locals }) => {
-  if (!locals.me?.data?.perms?.includes('user:manage')) return error(403, 'Forbidden');
+  await authorize(locals, 'user:manage');
   await assertFeatureEnabled(locals, 'role-management');
   const rows = await db.select().from(permission);
   return json({ data: rows.map(p => ({ id: p.id, code: p.code, name: p.name })) });
 };
 
 export const POST: RequestHandler = async ({ locals, request }) => {
-  if (!locals.me?.data?.perms?.includes('user:manage')) return error(403, 'Forbidden');
+  await authorize(locals, 'user:manage');
   await assertFeatureEnabled(locals, 'role-management');
   const body = await request.json().catch(() => ({}));
   const parsed = parsePermissionCreateInput(body);

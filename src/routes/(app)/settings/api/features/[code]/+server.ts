@@ -5,11 +5,10 @@ import { parseFeatureUpdateInput } from '$lib/server/validators/features';
 import { setFeatureEnabled, setFeatureStateValue } from '$lib/server/feature-runtime';
 import { listFeatureAdminItems } from '$lib/server/features-admin';
 import { featureRegistry } from '$lib/features';
+import { authorize } from '$lib/server/authorization';
 
 export const PATCH: RequestHandler = async ({ locals, params, request }) => {
-	if (!locals.me?.data?.perms?.includes('feature:manage')) {
-		return error(403, 'Forbidden');
-	}
+	await authorize(locals, 'feature:manage');
 
 	const code = params.code;
 	if (!code) {

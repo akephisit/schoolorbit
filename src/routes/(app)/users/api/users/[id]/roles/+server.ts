@@ -6,11 +6,10 @@ import { eq, inArray } from 'drizzle-orm';
 import { validationError } from '$lib/server/validators/core';
 import { parseRoleAssignmentInput, validateRoleCodes } from '$lib/server/validators/users';
 import { assertFeatureEnabled } from '$lib/server/features';
+import { authorize } from '$lib/server/authorization';
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {
-  if (!locals.me?.data?.perms?.includes('user:manage')) {
-    return error(403, 'Forbidden');
-  }
+  await authorize(locals, 'user:manage');
   await assertFeatureEnabled(locals, 'user-management');
   const id = params.id;
   const jsonBody = await request.json().catch(() => ({}));

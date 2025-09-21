@@ -6,16 +6,17 @@ import { eq } from 'drizzle-orm';
 import { validationError } from '$lib/server/validators/core';
 import { parseCreateUnitInput } from '$lib/server/validators/org';
 import { assertFeatureEnabled } from '$lib/server/features';
+import { authorize } from '$lib/server/authorization';
 
 export const GET: RequestHandler = async ({ locals }) => {
-  if (!locals.me?.data?.perms?.includes('user:manage')) return error(403, 'Forbidden');
+  await authorize(locals, 'user:manage');
   await assertFeatureEnabled(locals, 'org-management');
   const rows = await db.select().from(orgUnit);
   return json({ data: rows });
 };
 
 export const POST: RequestHandler = async ({ locals, request }) => {
-  if (!locals.me?.data?.perms?.includes('user:manage')) return error(403, 'Forbidden');
+  await authorize(locals, 'user:manage');
   await assertFeatureEnabled(locals, 'org-management');
   const body = await request.json().catch(() => ({}));
   const parsed = parseCreateUnitInput(body);

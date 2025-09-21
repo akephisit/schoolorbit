@@ -1,11 +1,7 @@
 import type { PageServerLoad } from './$types';
-import { error } from '@sveltejs/kit';
+import { authorize } from '$lib/server/authorization';
 
 export const load: PageServerLoad = async ({ locals }) => {
-  const perms = locals.me?.data?.perms ?? [] as string[];
-  if (!perms.includes('class:read')) {
-    throw error(403, 'Forbidden');
-  }
+  await authorize(locals, 'class:read');
   return {};
 };
-

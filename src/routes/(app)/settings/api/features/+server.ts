@@ -1,16 +1,15 @@
-import { json, error } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import type { FeatureAdminItem } from '$lib/server/features-admin';
 import { listFeatureAdminItems } from '$lib/server/features-admin';
+import { authorize } from '$lib/server/authorization';
 
 interface FeatureResponse {
 	data: FeatureAdminItem[];
 }
 
 export const GET: RequestHandler = async ({ locals }) => {
-	if (!locals.me?.data?.perms?.includes('feature:manage')) {
-		return error(403, 'Forbidden');
-	}
+	await authorize(locals, 'feature:manage');
 
 	const items = await listFeatureAdminItems(locals);
 

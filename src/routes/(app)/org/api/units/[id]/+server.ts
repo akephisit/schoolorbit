@@ -6,9 +6,10 @@ import { eq } from 'drizzle-orm';
 import { validationError } from '$lib/server/validators/core';
 import { parseUpdateUnitInput } from '$lib/server/validators/org';
 import { assertFeatureEnabled } from '$lib/server/features';
+import { authorize } from '$lib/server/authorization';
 
 export const PUT: RequestHandler = async ({ locals, params, request }) => {
-  if (!locals.me?.data?.perms?.includes('user:manage')) return error(403, 'Forbidden');
+  await authorize(locals, 'user:manage');
   await assertFeatureEnabled(locals, 'org-management');
   const id = params.id;
   const body = await request.json().catch(() => ({}));
@@ -22,7 +23,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
 };
 
 export const DELETE: RequestHandler = async ({ locals, params }) => {
-  if (!locals.me?.data?.perms?.includes('user:manage')) return error(403, 'Forbidden');
+  await authorize(locals, 'user:manage');
   await assertFeatureEnabled(locals, 'org-management');
   const id = params.id;
   await db.delete(orgUnit).where(eq(orgUnit.id, id));
