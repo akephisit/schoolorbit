@@ -329,32 +329,21 @@ async function main() {
     for (const u of updates) {
       await sql`UPDATE menu_item SET label = ${u.th} WHERE href = ${u.href}`;
     }
-    // Ensure newly added admin menus exist
-    const ensureMenu = async (label, href, icon, sort, perms = ['user:manage'], features = null) => {
-      const exists = await sql`SELECT 1 FROM menu_item WHERE href = ${href} LIMIT 1`;
-      if (!exists.length) {
-        await sql`
-          INSERT INTO menu_item (label, href, icon, required_permissions, required_features, sort_order, is_active)
-          VALUES (${label}, ${href}, ${icon}, ${JSON.stringify(perms)}, ${features ? JSON.stringify(features) : null}, ${sort}, true)
-        `;
-      } else {
-        await sql`
-          UPDATE menu_item
-          SET label = ${label}, icon = ${icon}, required_permissions = ${JSON.stringify(perms)}, required_features = ${features ? JSON.stringify(features) : null}, sort_order = ${sort}, is_active = true
-          WHERE href = ${href}
-        `;
-      }
-    };
-    await ensureMenu('การเข้าเรียน', '/attendance', 'calendar', 20, ['attend:read'], ['attendance']);
-    await ensureMenu('บันทึกการเข้าเรียน', '/attendance/mark', 'check', 30, ['attend:write'], ['attendance-mark']);
-    await ensureMenu('ผลการเรียน', '/grades', 'award', 40, ['grade:read'], ['grades']);
-    await ensureMenu('ผู้ใช้', '/users', 'users', 50, ['user:manage'], ['user-management']);
-    await ensureMenu('บทบาทและสิทธิ์', '/roles', 'settings', 55, ['user:manage'], ['role-management']);
-    await ensureMenu('หน่วยงาน/ฝ่าย', '/org', 'building', 60, ['user:manage'], ['org-management']);
-    await ensureMenu('ตำแหน่ง', '/positions', 'briefcase', 70, ['user:manage'], ['position-management']);
-    await ensureMenu('ครูประจำชั้น', '/homeroom', 'idcard', 80, ['user:manage'], ['homeroom']);
-    await ensureMenu('ตั้งค่าระบบ', '/settings/features', 'toggle-left', 110, ['feature:manage']);
-    await sql`DELETE FROM menu_item WHERE href IN ('/finance', '/academics')`;
+    const dashboardHref = '/dashboard';
+    await sql`DELETE FROM menu_item WHERE href <> ${dashboardHref}`;
+    const [dashExists] = await sql`SELECT id FROM menu_item WHERE href = ${dashboardHref} LIMIT 1`;
+    if (!dashExists) {
+      await sql`
+        INSERT INTO menu_item (label, href, icon, required_permissions, required_features, sort_order, is_active)
+        VALUES ('แดชบอร์ด', ${dashboardHref}, 'home', ${JSON.stringify([])}, ${null}, 0, true)
+      `;
+    } else {
+      await sql`
+        UPDATE menu_item
+        SET label = 'แดชบอร์ด', icon = 'home', required_permissions = ${JSON.stringify([])}, required_features = ${null}, sort_order = 0, is_active = true
+        WHERE href = ${dashboardHref}
+      `;
+    }
     console.log('✅ Thai labels applied to existing menu items');
   }
 
@@ -364,12 +353,7 @@ async function main() {
     const featureToggles = [
       { code: 'attendance', name: 'ระบบการเข้าเรียน', description: 'เปิดให้ดูข้อมูลการเข้าเรียน' },
       { code: 'attendance-mark', name: 'บันทึกการเข้าเรียน', description: 'เปิดให้ครูบันทึกการเข้าเรียน' },
-      { code: 'grades', name: 'ระบบผลการเรียน', description: 'เปิดให้ใช้งานข้อมูลคะแนน/ผลการเรียน' },
-      { code: 'user-management', name: 'จัดการผู้ใช้', description: 'เปิดให้จัดการผู้ใช้ทั้งหมด' },
-      { code: 'role-management', name: 'จัดการบทบาทและสิทธิ์', description: 'เปิดให้ปรับบทบาทและสิทธิ์' },
-      { code: 'org-management', name: 'จัดการหน่วยงาน/ฝ่าย', description: 'ควบคุมการจัดการโครงสร้างฝ่าย' },
-      { code: 'position-management', name: 'จัดการตำแหน่ง', description: 'ควบคุมการจัดการตำแหน่งบุคลากร' },
-      { code: 'homeroom', name: 'ระบบครูประจำชั้น', description: 'ควบคุมการมอบหมายครูประจำชั้น' }
+      { code: 'grades', name: 'ระบบผลการเรียน', description: 'เปิดให้ใช้งานข้อมูลคะแนน/ผลการเรียน' }
     ];
 
     for (const feature of featureToggles) {
