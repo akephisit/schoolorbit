@@ -247,11 +247,7 @@ async function main() {
     ['grade:read', 'Read Grades'],
     ['user:manage', 'Manage Users'],
     ['feature:manage', 'Manage Feature Toggles'],
-    ['pii:view', 'View Sensitive PII'],
-    ['finance:view', 'View Finance'],
-    ['finance:manage', 'Manage Finance'],
-    ['academics:view', 'View Academics'],
-    ['academics:manage', 'Manage Academics']
+    ['pii:view', 'View Sensitive PII']
   ];
 
   const roleIds = {};
@@ -297,9 +293,7 @@ async function main() {
       { label: 'บทบาทและสิทธิ์', href: '/roles', icon: 'settings', requires: ['user:manage'], features: ['role-management'], sort: 55 },
       { label: 'หน่วยงาน/ฝ่าย', href: '/org', icon: 'building', requires: ['user:manage'], features: ['org-management'], sort: 60 },
       { label: 'ตำแหน่ง', href: '/positions', icon: 'briefcase', requires: ['user:manage'], features: ['position-management'], sort: 70 },
-      { label: 'ครูประจำชั้น', href: '/homeroom', icon: 'idcard', requires: ['academics:manage'], features: ['homeroom'], sort: 80 },
-      { label: 'การเงิน', href: '/finance', icon: 'briefcase', requires: ['finance:view'], features: ['finance'], sort: 90 },
-      { label: 'วิชาการ', href: '/academics', icon: 'book', requires: ['academics:view'], features: ['academics'], sort: 100 },
+      { label: 'ครูประจำชั้น', href: '/homeroom', icon: 'idcard', requires: ['user:manage'], features: ['homeroom'], sort: 80 },
       { label: 'ตั้งค่าระบบ', href: '/settings/features', icon: 'toggle-left', requires: ['feature:manage'], features: null, sort: 110 }
     ];
     for (const it of items) {
@@ -351,17 +345,16 @@ async function main() {
         `;
       }
     };
-    await ensureMenu('บทบาทและสิทธิ์', '/roles', 'settings', 55, ['user:manage'], ['role-management']);
-    await ensureMenu('หน่วยงาน/ฝ่าย', '/org', 'building', 60, ['user:manage'], ['org-management']);
-    await ensureMenu('ตำแหน่ง', '/positions', 'briefcase', 70, ['user:manage'], ['position-management']);
-    await ensureMenu('ครูประจำชั้น', '/homeroom', 'idcard', 80, ['academics:manage'], ['homeroom']);
-    await ensureMenu('การเงิน', '/finance', 'briefcase', 90, ['finance:view']);
-    await ensureMenu('วิชาการ', '/academics', 'book', 100, ['academics:view']);
     await ensureMenu('การเข้าเรียน', '/attendance', 'calendar', 20, ['attend:read'], ['attendance']);
     await ensureMenu('บันทึกการเข้าเรียน', '/attendance/mark', 'check', 30, ['attend:write'], ['attendance-mark']);
     await ensureMenu('ผลการเรียน', '/grades', 'award', 40, ['grade:read'], ['grades']);
     await ensureMenu('ผู้ใช้', '/users', 'users', 50, ['user:manage'], ['user-management']);
+    await ensureMenu('บทบาทและสิทธิ์', '/roles', 'settings', 55, ['user:manage'], ['role-management']);
+    await ensureMenu('หน่วยงาน/ฝ่าย', '/org', 'building', 60, ['user:manage'], ['org-management']);
+    await ensureMenu('ตำแหน่ง', '/positions', 'briefcase', 70, ['user:manage'], ['position-management']);
+    await ensureMenu('ครูประจำชั้น', '/homeroom', 'idcard', 80, ['user:manage'], ['homeroom']);
     await ensureMenu('ตั้งค่าระบบ', '/settings/features', 'toggle-left', 110, ['feature:manage']);
+    await sql`DELETE FROM menu_item WHERE href IN ('/finance', '/academics')`;
     console.log('✅ Thai labels applied to existing menu items');
   }
 
@@ -376,9 +369,7 @@ async function main() {
       { code: 'role-management', name: 'จัดการบทบาทและสิทธิ์', description: 'เปิดให้ปรับบทบาทและสิทธิ์' },
       { code: 'org-management', name: 'จัดการหน่วยงาน/ฝ่าย', description: 'ควบคุมการจัดการโครงสร้างฝ่าย' },
       { code: 'position-management', name: 'จัดการตำแหน่ง', description: 'ควบคุมการจัดการตำแหน่งบุคลากร' },
-      { code: 'homeroom', name: 'ระบบครูประจำชั้น', description: 'ควบคุมการมอบหมายครูประจำชั้น' },
-      { code: 'finance', name: 'ระบบการเงิน', description: 'ควบคุมการเข้าถึงโมดูลการเงิน' },
-      { code: 'academics', name: 'ระบบวิชาการ', description: 'ควบคุมการเข้าถึงโมดูลวิชาการ' }
+      { code: 'homeroom', name: 'ระบบครูประจำชั้น', description: 'ควบคุมการมอบหมายครูประจำชั้น' }
     ];
 
     for (const feature of featureToggles) {
@@ -387,6 +378,13 @@ async function main() {
         VALUES (${feature.code}, ${feature.name}, ${feature.description})
         ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.description
       `;
+    }
+    const existingFeatureRows = await sql`SELECT code FROM feature_toggle`;
+    const validFeatureCodes = new Set(featureToggles.map((f) => f.code));
+    for (const row of existingFeatureRows) {
+      if (!validFeatureCodes.has(row.code)) {
+        await sql`DELETE FROM feature_toggle WHERE code = ${row.code}`;
+      }
     }
     console.log('✅ Feature toggles seeded');
   } catch (err) {
