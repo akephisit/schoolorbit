@@ -386,6 +386,32 @@ async function main() {
         await sql`DELETE FROM feature_toggle WHERE code = ${row.code}`;
       }
     }
+
+    const featureStates = [
+      { featureCode: 'attendance', stateCode: 'open', value: false },
+      { featureCode: 'grades', stateCode: 'entry-open', value: false }
+    ];
+
+    for (const state of featureStates) {
+      await sql`
+        INSERT INTO feature_state (feature_code, state_code, value)
+        VALUES (${state.featureCode}, ${state.stateCode}, ${state.value})
+        ON CONFLICT (feature_code, state_code)
+        DO UPDATE SET value = EXCLUDED.value
+      `;
+    }
+
+    const stateRows = await sql`SELECT feature_code, state_code FROM feature_state`;
+    const validPairs = new Set(featureStates.map((s) => `${s.featureCode}:${s.stateCode}`));
+    for (const row of stateRows) {
+      const key = `${row.feature_code}:${row.state_code}`;
+      if (!validPairs.has(key)) {
+        await sql`
+          DELETE FROM feature_state
+          WHERE feature_code = ${row.feature_code} AND state_code = ${row.state_code}
+        `;
+      }
+    }
     console.log('✅ Feature toggles seeded');
   } catch (err) {
     console.warn('⚠️  Skipped seeding feature toggles (table missing?)', err?.message ?? err);

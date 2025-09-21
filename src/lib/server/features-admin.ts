@@ -13,6 +13,16 @@ export interface FeatureAdminItem {
 	updatedAt: Date | null;
 	updatedBy: string | null;
 	updatedByName: string | null;
+	states: FeatureAdminState[];
+}
+
+export interface FeatureAdminState {
+	code: string;
+	label: string;
+	description: string | null;
+	kind: 'toggle';
+	value: boolean;
+	defaultValue: boolean;
 }
 
 function mapDefinitions(definitions: FeatureDefinition[]): Map<string, FeatureDefinition> {
@@ -65,7 +75,41 @@ export async function listFeatureAdminItems(locals?: App.Locals | null): Promise
 				enabled: runtime?.enabled ?? row?.enabled ?? false,
 				updatedAt: row?.updatedAt ?? null,
 				updatedBy: row?.updatedBy ?? null,
-				updatedByName: row?.updatedByName ?? null
+				updatedByName: row?.updatedByName ?? null,
+				states: buildAdminStates(runtime?.states ?? {}, definition)
+			};
+		});
+}
+
+function buildAdminStates(
+	runtimeStates: Record<string, boolean>,
+	definition: FeatureDefinition | undefined
+): FeatureAdminState[] {
+	const definedStates = definition?.states ?? [];
+	const codes = new Set<string>([...Object.keys(runtimeStates), ...definedStates.map((state) => state.code)]);
+	if (!codes.size) {
+		return [];
+	}
+
+	const orderedCodes = [
+		...definedStates.map((state) => state.code),
+		...Array.from(codes).filter((code) => !definedStates.some((state) => state.code === code)).sort((a, b) =>
+			a.localeCompare(b)
+		)
+	];
+
+	return orderedCodes
+		.filter((code, index, arr) => arr.indexOf(code) === index)
+		.map((stateCode) => {
+			const def = definedStates.find((state) => state.code === stateCode);
+			const defaultValue = def?.defaultValue ?? false;
+			return {
+				code: stateCode,
+				label: def?.label ?? stateCode,
+				description: def?.description ?? null,
+				kind: def?.kind ?? 'toggle',
+				value: runtimeStates[stateCode] ?? defaultValue,
+				defaultValue
 			};
 		});
 }
