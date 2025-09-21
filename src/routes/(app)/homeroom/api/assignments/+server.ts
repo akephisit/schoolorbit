@@ -5,9 +5,11 @@ import { homeroomAssignment, appUser } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
 import { validationError } from '$lib/server/validators/core';
 import { parseHomeroomAssignmentCreate } from '$lib/server/validators/homeroom';
+import { assertFeatureEnabled } from '$lib/server/features';
 
 export const GET: RequestHandler = async ({ locals }) => {
   if (!locals.me?.data?.perms?.includes('user:manage')) return error(403, 'Forbidden');
+  await assertFeatureEnabled(locals, 'homeroom');
   const rows = await db
     .select({ id: homeroomAssignment.id, classCode: homeroomAssignment.classCode, teacherId: homeroomAssignment.teacherId, email: appUser.email, displayName: appUser.displayName })
     .from(homeroomAssignment)
@@ -17,6 +19,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 
 export const POST: RequestHandler = async ({ locals, request }) => {
   if (!locals.me?.data?.perms?.includes('user:manage')) return error(403, 'Forbidden');
+  await assertFeatureEnabled(locals, 'homeroom');
   const body = await request.json().catch(() => ({}));
   const parsed = parseHomeroomAssignmentCreate(body);
   if (!parsed.ok) {

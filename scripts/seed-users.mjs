@@ -246,6 +246,7 @@ async function main() {
     ['attend:write', 'Write Attendance'],
     ['grade:read', 'Read Grades'],
     ['user:manage', 'Manage Users'],
+    ['feature:manage', 'Manage Feature Toggles'],
     ['pii:view', 'View Sensitive PII'],
     ['finance:view', 'View Finance'],
     ['finance:manage', 'Manage Finance'],
@@ -287,23 +288,32 @@ async function main() {
   if (count === 0) {
     // Seed default menu in Thai
     const items = [
-      { label: 'แดชบอร์ด', href: '/dashboard', icon: 'home', requires: null, sort: 0 },
-      { label: 'ชั้นเรียน', href: '/classes', icon: 'book', requires: ['class:read'], sort: 10 },
-      { label: 'การเข้าเรียน', href: '/attendance', icon: 'calendar', requires: ['attend:read'], sort: 20 },
-      { label: 'บันทึกการเข้าเรียน', href: '/attendance/mark', icon: 'check', requires: ['attend:write'], sort: 30 },
-      { label: 'ผลการเรียน', href: '/grades', icon: 'award', requires: ['grade:read'], sort: 40 },
-      { label: 'ผู้ใช้', href: '/users', icon: 'users', requires: ['user:manage'], sort: 50 },
-      { label: 'บทบาทและสิทธิ์', href: '/roles', icon: 'settings', requires: ['user:manage'], sort: 55 },
-      { label: 'หน่วยงาน/ฝ่าย', href: '/org', icon: 'building', requires: ['user:manage'], sort: 60 },
-      { label: 'ตำแหน่ง', href: '/positions', icon: 'briefcase', requires: ['user:manage'], sort: 70 },
-      { label: 'ครูประจำชั้น', href: '/homeroom', icon: 'idcard', requires: ['academics:manage'], sort: 80 },
-      { label: 'การเงิน', href: '/finance', icon: 'briefcase', requires: ['finance:view'], sort: 90 },
-      { label: 'วิชาการ', href: '/academics', icon: 'book', requires: ['academics:view'], sort: 100 }
+      { label: 'แดชบอร์ด', href: '/dashboard', icon: 'home', requires: null, features: null, sort: 0 },
+      { label: 'ชั้นเรียน', href: '/classes', icon: 'book', requires: ['class:read'], features: null, sort: 10 },
+      { label: 'การเข้าเรียน', href: '/attendance', icon: 'calendar', requires: ['attend:read'], features: ['attendance'], sort: 20 },
+      { label: 'บันทึกการเข้าเรียน', href: '/attendance/mark', icon: 'check', requires: ['attend:write'], features: ['attendance-mark'], sort: 30 },
+      { label: 'ผลการเรียน', href: '/grades', icon: 'award', requires: ['grade:read'], features: ['grades'], sort: 40 },
+      { label: 'ผู้ใช้', href: '/users', icon: 'users', requires: ['user:manage'], features: ['user-management'], sort: 50 },
+      { label: 'บทบาทและสิทธิ์', href: '/roles', icon: 'settings', requires: ['user:manage'], features: ['role-management'], sort: 55 },
+      { label: 'หน่วยงาน/ฝ่าย', href: '/org', icon: 'building', requires: ['user:manage'], features: ['org-management'], sort: 60 },
+      { label: 'ตำแหน่ง', href: '/positions', icon: 'briefcase', requires: ['user:manage'], features: ['position-management'], sort: 70 },
+      { label: 'ครูประจำชั้น', href: '/homeroom', icon: 'idcard', requires: ['academics:manage'], features: ['homeroom'], sort: 80 },
+      { label: 'การเงิน', href: '/finance', icon: 'briefcase', requires: ['finance:view'], features: ['finance'], sort: 90 },
+      { label: 'วิชาการ', href: '/academics', icon: 'book', requires: ['academics:view'], features: ['academics'], sort: 100 },
+      { label: 'ตั้งค่าระบบ', href: '/settings/features', icon: 'toggle-left', requires: ['feature:manage'], features: null, sort: 110 }
     ];
     for (const it of items) {
       await sql`
-        INSERT INTO menu_item (label, href, icon, required_permissions, sort_order, is_active)
-        VALUES (${it.label}, ${it.href}, ${it.icon}, ${it.requires ? JSON.stringify(it.requires) : null}, ${it.sort}, true)
+        INSERT INTO menu_item (label, href, icon, required_permissions, required_features, sort_order, is_active)
+        VALUES (
+          ${it.label},
+          ${it.href},
+          ${it.icon},
+          ${it.requires ? JSON.stringify(it.requires) : null},
+          ${it.features ? JSON.stringify(it.features) : null},
+          ${it.sort},
+          true
+        )
       `;
     }
     console.log('✅ Menu items created (Thai)');
@@ -326,21 +336,61 @@ async function main() {
       await sql`UPDATE menu_item SET label = ${u.th} WHERE href = ${u.href}`;
     }
     // Ensure newly added admin menus exist
-    const ensureMenu = async (label, href, icon, sort, perms = ['user:manage']) => {
+    const ensureMenu = async (label, href, icon, sort, perms = ['user:manage'], features = null) => {
       const exists = await sql`SELECT 1 FROM menu_item WHERE href = ${href} LIMIT 1`;
       if (!exists.length) {
-        await sql`INSERT INTO menu_item (label, href, icon, required_permissions, sort_order, is_active) VALUES (${label}, ${href}, ${icon}, ${JSON.stringify(perms)}, ${sort}, true)`;
+        await sql`
+          INSERT INTO menu_item (label, href, icon, required_permissions, required_features, sort_order, is_active)
+          VALUES (${label}, ${href}, ${icon}, ${JSON.stringify(perms)}, ${features ? JSON.stringify(features) : null}, ${sort}, true)
+        `;
       } else {
-        await sql`UPDATE menu_item SET label = ${label}, icon = ${icon}, required_permissions = ${JSON.stringify(perms)}, sort_order = ${sort}, is_active = true WHERE href = ${href}`;
+        await sql`
+          UPDATE menu_item
+          SET label = ${label}, icon = ${icon}, required_permissions = ${JSON.stringify(perms)}, required_features = ${features ? JSON.stringify(features) : null}, sort_order = ${sort}, is_active = true
+          WHERE href = ${href}
+        `;
       }
     };
-    await ensureMenu('บทบาทและสิทธิ์', '/roles', 'settings', 55, ['user:manage']);
-    await ensureMenu('หน่วยงาน/ฝ่าย', '/org', 'building', 60, ['user:manage']);
-    await ensureMenu('ตำแหน่ง', '/positions', 'briefcase', 70, ['user:manage']);
-    await ensureMenu('ครูประจำชั้น', '/homeroom', 'idcard', 80, ['academics:manage']);
+    await ensureMenu('บทบาทและสิทธิ์', '/roles', 'settings', 55, ['user:manage'], ['role-management']);
+    await ensureMenu('หน่วยงาน/ฝ่าย', '/org', 'building', 60, ['user:manage'], ['org-management']);
+    await ensureMenu('ตำแหน่ง', '/positions', 'briefcase', 70, ['user:manage'], ['position-management']);
+    await ensureMenu('ครูประจำชั้น', '/homeroom', 'idcard', 80, ['academics:manage'], ['homeroom']);
     await ensureMenu('การเงิน', '/finance', 'briefcase', 90, ['finance:view']);
     await ensureMenu('วิชาการ', '/academics', 'book', 100, ['academics:view']);
+    await ensureMenu('การเข้าเรียน', '/attendance', 'calendar', 20, ['attend:read'], ['attendance']);
+    await ensureMenu('บันทึกการเข้าเรียน', '/attendance/mark', 'check', 30, ['attend:write'], ['attendance-mark']);
+    await ensureMenu('ผลการเรียน', '/grades', 'award', 40, ['grade:read'], ['grades']);
+    await ensureMenu('ผู้ใช้', '/users', 'users', 50, ['user:manage'], ['user-management']);
+    await ensureMenu('ตั้งค่าระบบ', '/settings/features', 'toggle-left', 110, ['feature:manage']);
     console.log('✅ Thai labels applied to existing menu items');
+  }
+
+  // ---- Feature toggles ----
+  try {
+    console.log('\nSeeding feature toggles...');
+    const featureToggles = [
+      { code: 'attendance', name: 'ระบบการเข้าเรียน', description: 'เปิดให้ดูข้อมูลการเข้าเรียน' },
+      { code: 'attendance-mark', name: 'บันทึกการเข้าเรียน', description: 'เปิดให้ครูบันทึกการเข้าเรียน' },
+      { code: 'grades', name: 'ระบบผลการเรียน', description: 'เปิดให้ใช้งานข้อมูลคะแนน/ผลการเรียน' },
+      { code: 'user-management', name: 'จัดการผู้ใช้', description: 'เปิดให้จัดการผู้ใช้ทั้งหมด' },
+      { code: 'role-management', name: 'จัดการบทบาทและสิทธิ์', description: 'เปิดให้ปรับบทบาทและสิทธิ์' },
+      { code: 'org-management', name: 'จัดการหน่วยงาน/ฝ่าย', description: 'ควบคุมการจัดการโครงสร้างฝ่าย' },
+      { code: 'position-management', name: 'จัดการตำแหน่ง', description: 'ควบคุมการจัดการตำแหน่งบุคลากร' },
+      { code: 'homeroom', name: 'ระบบครูประจำชั้น', description: 'ควบคุมการมอบหมายครูประจำชั้น' },
+      { code: 'finance', name: 'ระบบการเงิน', description: 'ควบคุมการเข้าถึงโมดูลการเงิน' },
+      { code: 'academics', name: 'ระบบวิชาการ', description: 'ควบคุมการเข้าถึงโมดูลวิชาการ' }
+    ];
+
+    for (const feature of featureToggles) {
+      await sql`
+        INSERT INTO feature_toggle (code, name, description)
+        VALUES (${feature.code}, ${feature.name}, ${feature.description})
+        ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.description
+      `;
+    }
+    console.log('✅ Feature toggles seeded');
+  } catch (err) {
+    console.warn('⚠️  Skipped seeding feature toggles (table missing?)', err?.message ?? err);
   }
 
   // ---- Org Units & Positions ----

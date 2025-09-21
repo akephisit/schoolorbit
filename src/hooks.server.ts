@@ -38,6 +38,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 	
 	event.locals.me = me;
+	event.locals.features = null;
 	
 	const response = await resolve(event);
 	

@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { db } from '$lib/server/database';
 import { menuItem } from '$lib/server/schema';
 import { eq, asc } from 'drizzle-orm';
+import { getEnabledFeatures } from '$lib/server/features';
 
 interface MenuItemOut {
   label: string;
@@ -26,17 +27,29 @@ export const GET: RequestHandler = async ({ locals }) => {
       label: menuItem.label,
       href: menuItem.href,
       icon: menuItem.icon,
-      requires: menuItem.requiredPermissions
+      requires: menuItem.requiredPermissions,
+      requiredFeatures: menuItem.requiredFeatures
     })
     .from(menuItem)
     .where(eq(menuItem.isActive, true))
     .orderBy(asc(menuItem.sortOrder));
 
-  const filtered = items.filter((it: any) => {
-    const reqs = (it.requires ?? []) as string[];
-    if (!reqs.length) return true;
-    return reqs.some((p) => userPerms.includes(p));
-  }).map(({ label, href, icon }) => ({ label, href, icon }));
+  const enabledFeatures = await getEnabledFeatures(locals);
+  const featureSet = new Set(enabledFeatures);
+
+  const filtered = items
+    .filter((it: any) => {
+      const reqPerms = (it.requires ?? []) as string[];
+      if (reqPerms.length && !reqPerms.some((p) => userPerms.includes(p))) {
+        return false;
+      }
+      const featReqs = (it.requiredFeatures ?? []) as string[];
+      if (featReqs.length && !featReqs.every((feat) => featureSet.has(feat))) {
+        return false;
+      }
+      return true;
+    })
+    .map(({ label, href, icon }) => ({ label, href, icon }));
 
   return json({ data: filtered } satisfies MenuResponse);
 };

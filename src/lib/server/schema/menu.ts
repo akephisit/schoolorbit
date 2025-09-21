@@ -9,6 +9,7 @@ export const menuItem = pgTable('menu_item', {
 	sortOrder: integer('sort_order').notNull().default(0),
 	isActive: boolean('is_active').notNull().default(true),
 	requiredPermissions: json('required_permissions').$type<string[]>(),
+	requiredFeatures: json('required_features').$type<string[]>(),
 	createdAt: timestamp('created_at').notNull().defaultNow(),
 	updatedAt: timestamp('updated_at').notNull().defaultNow()
 });

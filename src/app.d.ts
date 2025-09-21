@@ -16,6 +16,7 @@ declare global {
 					ctx: any;
 				}
 			} | null;
+			features?: string[] | null;
 		}
 		// interface PageData {}
 		// interface PageState {}

@@ -5,9 +5,11 @@ import { role, rolePermission, permission } from '$lib/server/schema';
 import { and, eq, inArray } from 'drizzle-orm';
 import { validationError } from '$lib/server/validators/core';
 import { parseRolePermissionsInput } from '$lib/server/validators/roles';
+import { assertFeatureEnabled } from '$lib/server/features';
 
 export const GET: RequestHandler = async ({ locals, params }) => {
   if (!locals.me?.data?.perms?.includes('user:manage')) return error(403, 'Forbidden');
+  await assertFeatureEnabled(locals, 'role-management');
   const rid = params.id;
   const rows = await db
     .select({ code: permission.code })
@@ -19,6 +21,7 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {
   if (!locals.me?.data?.perms?.includes('user:manage')) return error(403, 'Forbidden');
+  await assertFeatureEnabled(locals, 'role-management');
   const rid = params.id;
   const body = await request.json().catch(() => ({}));
   const parsed = parseRolePermissionsInput(body);

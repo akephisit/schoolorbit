@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { db } from '$lib/server/database';
 import { appUser } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
+import { getEnabledFeatures } from '$lib/server/features';
 
 interface UserInfo {
 	id: string;
@@ -19,6 +20,7 @@ interface MeResponse {
 		roles: string[];
 		perms: string[];
 		ctx?: any;
+		features: string[];
 	};
 }
 
@@ -45,6 +47,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 	}
 
 	const userData = user[0];
+	const features = await getEnabledFeatures(locals);
 	return json({
 		data: {
 			user: {
@@ -57,7 +60,8 @@ export const GET: RequestHandler = async ({ locals }) => {
 			},
 			roles: locals.me.data.roles || [],
 			perms: locals.me.data.perms || [],
-			ctx: locals.me.data.ctx
+			ctx: locals.me.data.ctx,
+			features
 		}
 	} satisfies MeResponse);
 };

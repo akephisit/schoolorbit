@@ -5,11 +5,13 @@ import { role, userRole } from '$lib/server/schema';
 import { eq, inArray } from 'drizzle-orm';
 import { validationError } from '$lib/server/validators/core';
 import { parseRoleAssignmentInput, validateRoleCodes } from '$lib/server/validators/users';
+import { assertFeatureEnabled } from '$lib/server/features';
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {
   if (!locals.me?.data?.perms?.includes('user:manage')) {
     return error(403, 'Forbidden');
   }
+  await assertFeatureEnabled(locals, 'user-management');
   const id = params.id;
   const jsonBody = await request.json().catch(() => ({}));
   const parsed = parseRoleAssignmentInput(jsonBody);

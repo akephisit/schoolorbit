@@ -5,3 +5,4 @@ export * from './rbac';
 export * from './org';
 export * from './positions';
 export * from './homeroom';
+export * from './features';

@@ -1,4 +1,5 @@
 import type { LayoutServerLoad } from './$types';
+import { getEnabledFeatures } from '$lib/server/features';
 
 const branding = {
 	name: 'SchoolOrbit',
@@ -14,6 +15,7 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 		roles: locals.me?.data?.roles ?? [],
 		perms: locals.me?.data?.perms ?? [],
 		ctx: locals.me?.data?.ctx ?? null,
+		features: locals.me ? await getEnabledFeatures(locals) : [],
 		branding
 	};
 };

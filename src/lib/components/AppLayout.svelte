@@ -14,6 +14,10 @@
     CheckCircle,
     Award,
     Users,
+    Building,
+    Briefcase,
+    IdCard,
+    ToggleLeft,
     Menu as IconMenu,
     X as IconX,
     LogOut as IconLogout,
@@ -46,7 +50,12 @@
     calendar: Calendar,
     check: CheckCircle,
     award: Award,
-    users: Users
+    users: Users,
+    building: Building,
+    briefcase: Briefcase,
+    idcard: IdCard,
+    'toggle-left': ToggleLeft,
+    settings: IconSettings
   };
 
   let navigationItems: NavItem[] = [];

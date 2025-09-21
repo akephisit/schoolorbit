@@ -5,9 +5,11 @@ import { role } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
 import { validationError } from '$lib/server/validators/core';
 import { parseRoleUpdateInput } from '$lib/server/validators/roles';
+import { assertFeatureEnabled } from '$lib/server/features';
 
 export const PUT: RequestHandler = async ({ locals, params, request }) => {
   if (!locals.me?.data?.perms?.includes('user:manage')) return error(403, 'Forbidden');
+  await assertFeatureEnabled(locals, 'role-management');
   const id = params.id;
   const body = await request.json().catch(() => ({}));
   const parsed = parseRoleUpdateInput(body);
@@ -29,6 +31,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
 
 export const DELETE: RequestHandler = async ({ locals, params }) => {
   if (!locals.me?.data?.perms?.includes('user:manage')) return error(403, 'Forbidden');
+  await assertFeatureEnabled(locals, 'role-management');
   const id = params.id;
   // Protect base roles from deletion
   const rows = await db.select().from(role).where(eq(role.id, id)).limit(1);

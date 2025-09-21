@@ -12,11 +12,13 @@ import {
   parseListUsersQuery,
   validateRoleCodes
 } from '$lib/server/validators/users';
+import { assertFeatureEnabled } from '$lib/server/features';
 
 export const GET: RequestHandler = async ({ locals, url }) => {
   if (!locals.me?.data?.perms?.includes('user:manage')) {
     return error(403, 'Forbidden');
   }
+  await assertFeatureEnabled(locals, 'user-management');
 
   const { q, page, limit } = parseListUsersQuery(url.searchParams);
   const offset = (page - 1) * limit;
@@ -70,6 +72,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
   if (!locals.me?.data?.perms?.includes('user:manage')) {
     return error(403, 'Forbidden');
   }
+  await assertFeatureEnabled(locals, 'user-management');
   const jsonBody = await request.json().catch(() => ({}));
   const parsed = parseCreateUserInput(jsonBody);
   if (!parsed.ok) {

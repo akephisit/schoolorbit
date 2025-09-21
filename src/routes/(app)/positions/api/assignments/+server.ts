@@ -5,9 +5,11 @@ import { positionAssignment, appUser, position } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
 import { validationError } from '$lib/server/validators/core';
 import { parseAssignmentCreateInput, parseAssignmentListQuery } from '$lib/server/validators/positions';
+import { assertFeatureEnabled } from '$lib/server/features';
 
 export const GET: RequestHandler = async ({ locals, url }) => {
   if (!locals.me?.data?.perms?.includes('user:manage')) return error(403, 'Forbidden');
+  await assertFeatureEnabled(locals, 'position-management');
   const query = parseAssignmentListQuery(url.searchParams);
   if (!query) {
     return validationError({
@@ -26,6 +28,7 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 
 export const POST: RequestHandler = async ({ locals, request }) => {
   if (!locals.me?.data?.perms?.includes('user:manage')) return error(403, 'Forbidden');
+  await assertFeatureEnabled(locals, 'position-management');
   const body = await request.json().catch(() => ({}));
   const parsed = parseAssignmentCreateInput(body);
   if (!parsed.ok) {
