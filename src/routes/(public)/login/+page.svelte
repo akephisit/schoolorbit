@@ -7,14 +7,21 @@
   import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '$lib/components/ui/card';
   // Removed actor type tabs; unified login form
   import { toast } from 'svelte-sonner';
+  import { parseApiError, firstFieldErrorMap } from '$lib/utils/api';
 
   let nationalId = $state('');
   let password = $state('');
   let loading = $state(false);
   let error = $state('');
+  let fieldErrors = $state<Record<string, string>>({});
 
   async function handleLogin() {
+    fieldErrors = {};
     if (!nationalId.trim() || !password.trim()) {
+      fieldErrors = {
+        ...(nationalId.trim() ? {} : { id: 'กรุณากรอกเลขบัตรประชาชน' }),
+        ...(password.trim() ? {} : { password: 'กรุณากรอกรหัสผ่าน' })
+      };
       error = 'กรุณากรอกเลขบัตรประชาชนและรหัสผ่าน';
       return;
     }
@@ -30,11 +37,15 @@
       });
 
       if (!response.ok) {
-        const errorData = await response.text();
-        throw new Error(errorData || 'การเข้าสู่ระบบล้มเหลว');
+        const apiError = await parseApiError(response);
+        fieldErrors = firstFieldErrorMap(apiError.fieldErrors);
+        error = apiError.message || 'การเข้าสู่ระบบล้มเหลว';
+        toast.error(error);
+        return;
       }
 
       toast.success('เข้าสู่ระบบสำเร็จ');
+      fieldErrors = {};
       goto('/dashboard');
     } catch (err) {
       error = err instanceof Error ? err.message : 'การเข้าสู่ระบบล้มเหลว';
@@ -76,12 +87,14 @@
           <form onsubmit={(e) => { e.preventDefault(); handleLogin(); }} class="space-y-6 mt-6">
             <div>
               <Label for="nationalId">เลขบัตรประชาชน</Label>
-              <Input id="nationalId" type="text" bind:value={nationalId} onkeypress={handleKeyPress} placeholder="กรอกเลขบัตรประชาชน 13 หลัก" required class="mt-1" maxlength={13} />
+              <Input id="nationalId" type="text" bind:value={nationalId} onkeypress={handleKeyPress} placeholder="กรอกเลขบัตรประชาชน 13 หลัก" required class={`mt-1 ${fieldErrors.id ? 'border-red-500 focus-visible:ring-red-500' : ''}`} maxlength={13} />
+              {#if fieldErrors.id}<p class="mt-1 text-xs text-red-500">{fieldErrors.id}</p>{/if}
             </div>
 
             <div>
               <Label for="password">รหัสผ่าน</Label>
-              <Input id="password" type="password" bind:value={password} onkeypress={handleKeyPress} placeholder="กรอกรหัสผ่าน" required class="mt-1" />
+              <Input id="password" type="password" bind:value={password} onkeypress={handleKeyPress} placeholder="กรอกรหัสผ่าน" required class={`mt-1 ${fieldErrors.password ? 'border-red-500 focus-visible:ring-red-500' : ''}`} />
+              {#if fieldErrors.password}<p class="mt-1 text-xs text-red-500">{fieldErrors.password}</p>{/if}
             </div>
 
             {#if error}

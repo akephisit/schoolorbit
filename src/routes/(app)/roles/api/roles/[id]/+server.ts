@@ -3,14 +3,18 @@ import type { RequestHandler } from './$types';
 import { db } from '$lib/server/database';
 import { role } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
+import { validationError } from '$lib/server/validators/core';
+import { parseRoleUpdateInput } from '$lib/server/validators/roles';
 
 export const PUT: RequestHandler = async ({ locals, params, request }) => {
   if (!locals.me?.data?.perms?.includes('user:manage')) return error(403, 'Forbidden');
   const id = params.id;
   const body = await request.json().catch(() => ({}));
-  const name = typeof body.name === 'string' ? body.name.trim() : '';
-  // Allow updating name only to keep codes stable
-  if (!name) return error(400, 'name ต้องระบุ');
+  const parsed = parseRoleUpdateInput(body);
+  if (!parsed.ok) {
+    return validationError(parsed.error);
+  }
+  const { name } = parsed.data;
   // Protect base roles from being renamed
   const rows = await db.select().from(role).where(eq(role.id, id)).limit(1);
   if (!rows.length) return error(404, 'ไม่พบบทบาท');

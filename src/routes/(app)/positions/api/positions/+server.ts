@@ -2,6 +2,8 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db } from '$lib/server/database';
 import { position } from '$lib/server/schema';
+import { validationError } from '$lib/server/validators/core';
+import { parseCreatePositionInput } from '$lib/server/validators/positions';
 
 export const GET: RequestHandler = async ({ locals }) => {
   if (!locals.me?.data?.perms?.includes('user:manage')) return error(403, 'Forbidden');
@@ -12,15 +14,18 @@ export const GET: RequestHandler = async ({ locals }) => {
 export const POST: RequestHandler = async ({ locals, request }) => {
   if (!locals.me?.data?.perms?.includes('user:manage')) return error(403, 'Forbidden');
   const body = await request.json().catch(() => ({}));
-  const code = (body.code || '').trim();
-  const titleTh = (body.titleTh || '').trim();
-  const category = typeof body.category === 'string' ? body.category : null;
-  if (!code || !titleTh) return error(400, 'code และ titleTh ต้องระบุ');
+  const parsed = parseCreatePositionInput(body);
+  if (!parsed.ok) {
+    return validationError(parsed.error);
+  }
+  const { code, titleTh, category } = parsed.data;
   try {
-    const ins = await db.insert(position).values({ code, titleTh, category: category || undefined }).returning({ id: position.id });
+    const ins = await db
+      .insert(position)
+      .values({ code, titleTh, category: category ?? undefined })
+      .returning({ id: position.id });
     return json({ data: { id: ins[0].id } }, { status: 201 });
   } catch {
     return error(400, 'ไม่สามารถสร้างตำแหน่งได้ (อาจซ้ำ)');
   }
 };
-

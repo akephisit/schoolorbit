@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { db } from '$lib/server/database';
 import { appUser } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
+import { validationError } from '$lib/server/validators/core';
 import { buildDisplayName, parseUpdateUserInput } from '$lib/server/validators/users';
 
 export const PUT: RequestHandler = async ({ locals, params, request }) => {
@@ -13,7 +14,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
   const jsonBody = await request.json().catch(() => ({}));
   const parsed = parseUpdateUserInput(jsonBody);
   if (!parsed.ok) {
-    return error(400, parsed.message);
+    return validationError(parsed.error);
   }
 
   const update = parsed.data;
@@ -49,7 +50,10 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
     : computedDisplayName;
 
   if (!nextDisplayName) {
-    return error(400, 'ไม่สามารถกำหนดชื่อแสดงผลได้');
+    return validationError({
+      message: 'ไม่สามารถกำหนดชื่อแสดงผลได้',
+      fieldErrors: { displayName: ['ไม่สามารถกำหนดชื่อแสดงผลได้'] }
+    });
   }
 
   const patch: Record<string, unknown> = { displayName: nextDisplayName };

@@ -8,6 +8,8 @@
   import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select';
   import { Label } from '$lib/components/ui/label';
   import CheckIcon from '@lucide/svelte/icons/check';
+  import { toast } from 'svelte-sonner';
+  import { parseApiError, firstFieldErrorMap } from '$lib/utils/api';
 
   type OrgUnit = { id: string; code: string; nameTh: string; type: string | null; parentId: string | null };
   type Member = { id: string; userId: string; roleInUnit: 'head'|'deputy'|'member'; displayName: string; email: string };
@@ -23,10 +25,12 @@
   let uName = $state('');
   let uType = $state('');
   let creating = $state(false);
+  let unitFieldErrors = $state<Record<string, string>>({});
 
   // New member
   let mEmail = $state('');
   let mRole = $state<'head'|'deputy'|'member'>('member');
+  let memberFieldErrors = $state<Record<string, string>>({});
 
   async function loadUnits() {
     const res = await fetch('/org/api/units');
@@ -65,30 +69,55 @@
   });
 
   async function createUnit() {
-    if (!uCode.trim() || !uName.trim()) return;
+    unitFieldErrors = {};
     creating = true;
     try {
-      const res = await fetch('/org/api/units', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: uCode.trim(), nameTh: uName.trim(), type: uType.trim() || null }) });
-      if (!res.ok) throw new Error(await res.text());
+      const res = await fetch('/org/api/units', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: uCode.trim(), nameTh: uName.trim(), type: uType.trim() || undefined })
+      });
+      if (!res.ok) {
+        const apiError = await parseApiError(res);
+        unitFieldErrors = firstFieldErrorMap(apiError.fieldErrors);
+        toast.error(apiError.message);
+        return;
+      }
       uCode = ''; uName = ''; uType = '';
+      unitFieldErrors = {};
       await loadUnits();
     } catch (e) {
-      alert('สร้างหน่วยงานไม่สำเร็จ');
+      toast.error('สร้างหน่วยงานไม่สำเร็จ');
     } finally { creating = false; }
   }
 
   async function addMember() {
-    if (!selectedUnitId || !mEmail.trim()) return;
+    memberFieldErrors = {};
+    if (!selectedUnitId || !mEmail.trim()) {
+      memberFieldErrors = { userEmail: 'กรุณาเลือกอีเมลผู้ใช้' };
+      toast.error('กรุณาเลือกอีเมลผู้ใช้');
+      return;
+    }
     const payload = { unitId: selectedUnitId, userEmail: mEmail.trim(), roleInUnit: mRole };
     const res = await fetch('/org/api/memberships', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    if (!res.ok) { alert('เพิ่มสมาชิกไม่สำเร็จ'); return; }
+    if (!res.ok) {
+      const apiError = await parseApiError(res);
+      memberFieldErrors = firstFieldErrorMap(apiError.fieldErrors);
+      toast.error(apiError.message);
+      return;
+    }
     mEmail=''; mRole='member';
+    memberFieldErrors = {};
     await loadMembers();
   }
 
   async function updateMemberRole(id: string, role: 'head'|'deputy'|'member') {
     const res = await fetch(`/org/api/memberships/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roleInUnit: role }) });
-    if (!res.ok) { alert('อัปเดตบทบาทในฝ่ายไม่สำเร็จ'); return; }
+    if (!res.ok) {
+      const apiError = await parseApiError(res);
+      toast.error(apiError.message);
+      return;
+    }
     await loadMembers();
   }
 
@@ -116,12 +145,21 @@
           <CardDescription>เพิ่มและเลือกหน่วยงาน</CardDescription>
         </CardHeader>
         <CardContent class="space-y-3">
-          <div class="flex gap-2">
-            <Input placeholder="รหัส (เช่น ACADEMIC)" bind:value={uCode} />
-            <Input placeholder="ชื่อหน่วยงาน (ไทย)" bind:value={uName} />
+          <div class="flex flex-wrap gap-2">
+            <div class="flex flex-col gap-1 flex-1 min-w-40">
+              <Input placeholder="รหัส (เช่น ACADEMIC)" bind:value={uCode} class={unitFieldErrors.code ? 'border-red-500 focus-visible:ring-red-500' : ''} />
+              {#if unitFieldErrors.code}<p class="text-xs text-red-500">{unitFieldErrors.code}</p>{/if}
+            </div>
+            <div class="flex flex-col gap-1 flex-1 min-w-40">
+              <Input placeholder="ชื่อหน่วยงาน (ไทย)" bind:value={uName} class={unitFieldErrors.nameTh ? 'border-red-500 focus-visible:ring-red-500' : ''} />
+              {#if unitFieldErrors.nameTh}<p class="text-xs text-red-500">{unitFieldErrors.nameTh}</p>{/if}
+            </div>
           </div>
-          <div class="flex gap-2">
-            <Input placeholder="ประเภท (ตัวเลือก)" bind:value={uType} />
+          <div class="flex flex-wrap gap-2 items-end">
+            <div class="flex flex-col gap-1 flex-1 min-w-40">
+              <Input placeholder="ประเภท (ตัวเลือก)" bind:value={uType} class={unitFieldErrors.type ? 'border-red-500 focus-visible:ring-red-500' : ''} />
+              {#if unitFieldErrors.type}<p class="text-xs text-red-500">{unitFieldErrors.type}</p>{/if}
+            </div>
             <Button onclick={createUnit} disabled={creating}>{creating ? 'กำลังเพิ่ม...' : 'เพิ่ม'}</Button>
           </div>
 
@@ -159,15 +197,21 @@
             <div class="text-sm text-gray-600">กรุณาเลือกหน่วยงานทางซ้าย</div>
           {:else}
             <div class="flex flex-wrap gap-2 items-end">
-              <div class="w-56"><UserAutocomplete bind:value={mEmail} placeholder="ค้นหาผู้ใช้ (พิมพ์ชื่อ/อีเมล)" /></div>
-              <Select type="single" bind:value={mRole}>
-                <SelectTrigger>{mRole === 'head' ? 'หัวหน้าฝ่าย' : mRole === 'deputy' ? 'รองหัวหน้า' : 'สมาชิก'}</SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="member">สมาชิก</SelectItem>
-                  <SelectItem value="deputy">รองหัวหน้า</SelectItem>
-                  <SelectItem value="head">หัวหน้าฝ่าย</SelectItem>
-                </SelectContent>
-              </Select>
+              <div class="w-56 flex flex-col gap-1">
+                <UserAutocomplete bind:value={mEmail} placeholder="ค้นหาผู้ใช้ (พิมพ์ชื่อ/อีเมล)" />
+                {#if memberFieldErrors.userEmail}<p class="text-xs text-red-500">{memberFieldErrors.userEmail}</p>{/if}
+              </div>
+              <div class="flex flex-col gap-1">
+                <Select type="single" bind:value={mRole}>
+                  <SelectTrigger>{mRole === 'head' ? 'หัวหน้าฝ่าย' : mRole === 'deputy' ? 'รองหัวหน้า' : 'สมาชิก'}</SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="member">สมาชิก</SelectItem>
+                    <SelectItem value="deputy">รองหัวหน้า</SelectItem>
+                    <SelectItem value="head">หัวหน้าฝ่าย</SelectItem>
+                  </SelectContent>
+                </Select>
+                {#if memberFieldErrors.roleInUnit}<p class="text-xs text-red-500">{memberFieldErrors.roleInUnit}</p>{/if}
+              </div>
               <Button onclick={addMember}>เพิ่มสมาชิก</Button>
             </div>
 

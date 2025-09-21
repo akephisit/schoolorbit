@@ -7,6 +7,8 @@
   import { RadioGroup, RadioGroupItem } from '$lib/components/ui/radio-group';
   import { Label } from '$lib/components/ui/label';
   import CheckIcon from '@lucide/svelte/icons/check';
+  import { toast } from 'svelte-sonner';
+  import { parseApiError, firstFieldErrorMap } from '$lib/utils/api';
 
   type Position = { id: string; code: string; titleTh: string; category: string | null };
   type Assign = { id: string; userId: string; positionId: string; email: string; displayName: string };
@@ -21,9 +23,11 @@
   let pTitle = $state('');
   let pCat = $state('');
   let creating = $state(false);
+  let positionFieldErrors = $state<Record<string, string>>({});
 
   // New assignment
   let aEmail = $state('');
+  let assignmentFieldErrors = $state<Record<string, string>>({});
 
   async function loadPositions() {
     const res = await fetch('/positions/api/positions');
@@ -38,28 +42,53 @@
   $effect(() => { loading = true; (async () => { await loadPositions(); await loadAssigns(); loading = false; })(); });
 
   async function createPosition() {
-    if (!pCode.trim() || !pTitle.trim()) return;
+    positionFieldErrors = {};
     creating = true;
     try {
-      const res = await fetch('/positions/api/positions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: pCode.trim(), titleTh: pTitle.trim(), category: pCat.trim() || null }) });
-      if (!res.ok) throw new Error(await res.text());
+      const res = await fetch('/positions/api/positions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: pCode.trim(), titleTh: pTitle.trim(), category: pCat.trim() || undefined })
+      });
+      if (!res.ok) {
+        const apiError = await parseApiError(res);
+        positionFieldErrors = firstFieldErrorMap(apiError.fieldErrors);
+        toast.error(apiError.message);
+        return;
+      }
       pCode=''; pTitle=''; pCat='';
+      positionFieldErrors = {};
       await loadPositions();
-    } catch { alert('เพิ่มตำแหน่งไม่สำเร็จ'); } finally { creating = false; }
+    } catch { toast.error('เพิ่มตำแหน่งไม่สำเร็จ'); } finally { creating = false; }
   }
 
   async function addAssign() {
-    if (!selectedPosId || !aEmail.trim()) return;
-    const res = await fetch('/positions/api/assignments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ positionId: selectedPosId, userEmail: aEmail.trim() }) });
-    if (!res.ok) { alert('มอบหมายตำแหน่งไม่สำเร็จ'); return; }
+    assignmentFieldErrors = {};
+    if (!selectedPosId || !aEmail.trim()) {
+      assignmentFieldErrors = { userEmail: 'กรุณาเลือกอีเมลผู้ใช้' };
+      toast.error('กรุณาเลือกอีเมลผู้ใช้');
+      return;
+    }
+    const res = await fetch('/positions/api/assignments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ positionId: selectedPosId, userEmail: aEmail.trim() })
+    });
+    if (!res.ok) {
+      const apiError = await parseApiError(res);
+      assignmentFieldErrors = firstFieldErrorMap(apiError.fieldErrors);
+      toast.error(apiError.message);
+      return;
+    }
     aEmail='';
+    assignmentFieldErrors = {};
     await loadAssigns();
   }
 
   async function removeAssign(id: string) {
     if (!confirm('ยกเลิกมอบหมายตำแหน่งนี้หรือไม่?')) return;
     const res = await fetch(`/positions/api/assignments/${id}`, { method: 'DELETE' });
-    if (!res.ok) { alert('ลบไม่สำเร็จ'); return; }
+    if (!res.ok) { toast.error('ลบไม่สำเร็จ'); return; }
     await loadAssigns();
   }
 </script>
@@ -80,12 +109,21 @@
           <CardDescription>เพิ่มและเลือกตำแหน่ง</CardDescription>
         </CardHeader>
         <CardContent class="space-y-3">
-          <div class="flex gap-2">
-            <Input placeholder="รหัส (เช่น DIRECTOR)" bind:value={pCode} />
-            <Input placeholder="ชื่อตำแหน่ง (ไทย)" bind:value={pTitle} />
+          <div class="flex flex-wrap gap-2">
+            <div class="flex flex-col gap-1 flex-1 min-w-40">
+              <Input placeholder="รหัส (เช่น DIRECTOR)" bind:value={pCode} class={positionFieldErrors.code ? 'border-red-500 focus-visible:ring-red-500' : ''} />
+              {#if positionFieldErrors.code}<p class="text-xs text-red-500">{positionFieldErrors.code}</p>{/if}
+            </div>
+            <div class="flex flex-col gap-1 flex-1 min-w-40">
+              <Input placeholder="ชื่อตำแหน่ง (ไทย)" bind:value={pTitle} class={positionFieldErrors.titleTh ? 'border-red-500 focus-visible:ring-red-500' : ''} />
+              {#if positionFieldErrors.titleTh}<p class="text-xs text-red-500">{positionFieldErrors.titleTh}</p>{/if}
+            </div>
           </div>
-          <div class="flex gap-2">
-            <Input placeholder="หมวด (ตัวเลือก)" bind:value={pCat} />
+          <div class="flex flex-wrap gap-2 items-end">
+            <div class="flex flex-col gap-1 flex-1 min-w-40">
+              <Input placeholder="หมวด (ตัวเลือก)" bind:value={pCat} class={positionFieldErrors.category ? 'border-red-500 focus-visible:ring-red-500' : ''} />
+              {#if positionFieldErrors.category}<p class="text-xs text-red-500">{positionFieldErrors.category}</p>{/if}
+            </div>
             <Button onclick={createPosition} disabled={creating}>{creating ? 'กำลังเพิ่ม...' : 'เพิ่ม'}</Button>
           </div>
 
@@ -123,7 +161,10 @@
             <div class="text-sm text-gray-600">กรุณาเลือกตำแหน่งทางซ้าย</div>
           {:else}
             <div class="flex flex-wrap gap-2 items-end">
-              <div class="w-56"><UserAutocomplete bind:value={aEmail} placeholder="ค้นหาผู้ใช้ (พิมพ์ชื่อ/อีเมล)" /></div>
+              <div class="w-56 flex flex-col gap-1">
+                <UserAutocomplete bind:value={aEmail} placeholder="ค้นหาผู้ใช้ (พิมพ์ชื่อ/อีเมล)" />
+                {#if assignmentFieldErrors.userEmail}<p class="text-xs text-red-500">{assignmentFieldErrors.userEmail}</p>{/if}
+              </div>
               <Button onclick={addAssign}>มอบหมาย</Button>
             </div>
 

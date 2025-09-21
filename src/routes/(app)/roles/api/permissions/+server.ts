@@ -2,6 +2,8 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db } from '$lib/server/database';
 import { permission } from '$lib/server/schema';
+import { validationError } from '$lib/server/validators/core';
+import { parsePermissionCreateInput } from '$lib/server/validators/roles';
 
 export const GET: RequestHandler = async ({ locals }) => {
   if (!locals.me?.data?.perms?.includes('user:manage')) return error(403, 'Forbidden');
@@ -12,10 +14,11 @@ export const GET: RequestHandler = async ({ locals }) => {
 export const POST: RequestHandler = async ({ locals, request }) => {
   if (!locals.me?.data?.perms?.includes('user:manage')) return error(403, 'Forbidden');
   const body = await request.json().catch(() => ({}));
-  const code = typeof body.code === 'string' ? body.code.trim() : '';
-  const name = typeof body.name === 'string' ? body.name.trim() : '';
-  if (!code || !name) return error(400, 'code และ name ต้องระบุ');
-  if (!/^[a-z0-9:_-]+$/i.test(code)) return error(400, 'รูปแบบ code ไม่ถูกต้อง');
+  const parsed = parsePermissionCreateInput(body);
+  if (!parsed.ok) {
+    return validationError(parsed.error);
+  }
+  const { code, name } = parsed.data;
   try {
     const ins = await db.insert(permission).values({ code, name }).returning({ id: permission.id });
     return json({ data: { id: ins[0].id } }, { status: 201 });
@@ -23,4 +26,3 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     return error(400, 'ไม่สามารถสร้างสิทธิ์ได้ (อาจซ้ำ)');
   }
 };
-

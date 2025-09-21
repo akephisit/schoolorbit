@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { db } from '$lib/server/database';
 import { role, userRole } from '$lib/server/schema';
 import { eq, inArray } from 'drizzle-orm';
+import { validationError } from '$lib/server/validators/core';
 import { parseRoleAssignmentInput, validateRoleCodes } from '$lib/server/validators/users';
 
 export const POST: RequestHandler = async ({ locals, params, request }) => {
@@ -13,7 +14,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
   const jsonBody = await request.json().catch(() => ({}));
   const parsed = parseRoleAssignmentInput(jsonBody);
   if (!parsed.ok) {
-    return error(400, parsed.message);
+    return validationError(parsed.error);
   }
 
   const roleCodes = validateRoleCodes(parsed.data.roles ?? []);

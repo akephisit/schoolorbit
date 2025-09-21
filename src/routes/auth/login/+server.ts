@@ -9,6 +9,8 @@ import { JwtService } from '$lib/server/jwt';
 import { RefreshService } from '$lib/server/refresh';
 import { hashNationalId, generateSecureToken } from '$lib/server/crypto';
 import { createCookieConfig, createAccessTokenCookie, createRefreshTokenCookie, createCsrfCookie } from '$lib/server/cookies';
+import { validationError } from '$lib/server/validators/core';
+import { parseLoginInput } from '$lib/server/validators/auth';
 
 interface LoginRequest {
     // Unified login by national ID
@@ -32,38 +34,46 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 	const jwtService = new JwtService(config.jwtSecret);
 	const refreshService = new RefreshService();
 
-	let body: LoginRequest;
+	let parsedBody: LoginRequest;
 	try {
-		body = await request.json();
+		parsedBody = await request.json();
 	} catch {
 		return error(400, 'Invalid JSON');
 	}
 
-	// Validate request
-    if (!body.id) {
-        return error(400, 'กรุณากรอกข้อมูลให้ครบถ้วน');
-    }
-
-	// Normalize inputs
-    let rawId = body.id.trim();
-    let password = body.password?.toString();
-    const otp = body.otp?.toString();
-
-	if (password !== undefined && password.trim() === '') {
-		return error(400, 'กรุณากรอกรหัสผ่าน');
+	const parsedInput = parseLoginInput(parsedBody);
+	if (!parsedInput.ok) {
+		return validationError(parsedInput.error);
 	}
 
-	if (!password && otp) {
-		// OTP flow not implemented yet
-		return error(400, 'ขออภัย ระบบยังไม่รองรับการเข้าสู่ระบบด้วย OTP');
+	const { id, password: rawPassword, otp } = parsedInput.data;
+
+	if (!rawPassword && otp) {
+		return validationError({
+			message: 'ขออภัย ระบบยังไม่รองรับการเข้าสู่ระบบด้วย OTP',
+			fieldErrors: { otp: ['ระบบยังไม่รองรับการเข้าสู่ระบบด้วย OTP'] }
+		});
 	}
+
+	if (!rawPassword) {
+		return validationError({
+			message: 'กรุณากรอกรหัสผ่าน',
+			fieldErrors: { password: ['กรุณากรอกรหัสผ่าน'] }
+		});
+	}
+
+	const rawId = id;
+	const password = rawPassword;
 
     let userId: string;
     try {
         userId = await authenticateByNationalId(rawId, password);
     } catch (e) {
         const msg = e instanceof Error ? e.message : 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ';
-        return error(400, msg);
+        return validationError({
+          message: msg,
+          fieldErrors: { id: [msg] }
+        });
     }
 
     // Load roles and permissions via RBAC tables

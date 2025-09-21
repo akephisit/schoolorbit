@@ -1,16 +1,11 @@
 import { z } from 'zod';
+import { parseWithSchema } from './core';
+import type { ParseResult } from './core';
 
 export const allowedRoleCodes = ['staff', 'student', 'parent'] as const;
 export const allowedStatusCodes = ['active', 'inactive', 'suspended'] as const;
 
 type RoleCode = (typeof allowedRoleCodes)[number];
-
-type ParseSuccess<T> = { ok: true; data: T };
-type ParseFailure = { ok: false; message: string };
-
-export type ParseResult<T> = ParseSuccess<T> | ParseFailure;
-
-const firstIssueMessage = (error: z.ZodError): string => error.issues[0]?.message ?? 'ข้อมูลไม่ถูกต้อง';
 
 const trimmedString = (min: number, max: number) => z.string().trim().min(min).max(max);
 
@@ -133,21 +128,11 @@ const passwordChangeSchema = z
 
 export type PasswordChangeInput = z.infer<typeof passwordChangeSchema>;
 
-export const parseCreateUserInput = (input: unknown): ParseResult<CreateUserInput> => {
-  const result = createUserSchema.safeParse(input);
-  if (!result.success) {
-    return { ok: false, message: firstIssueMessage(result.error) };
-  }
-  return { ok: true, data: result.data };
-};
+export const parseCreateUserInput = (input: unknown): ParseResult<CreateUserInput> =>
+  parseWithSchema(createUserSchema, input);
 
-export const parseUpdateUserInput = (input: unknown): ParseResult<UpdateUserInput> => {
-  const result = updateUserSchema.safeParse(input);
-  if (!result.success) {
-    return { ok: false, message: firstIssueMessage(result.error) };
-  }
-  return { ok: true, data: result.data };
-};
+export const parseUpdateUserInput = (input: unknown): ParseResult<UpdateUserInput> =>
+  parseWithSchema(updateUserSchema, input);
 
 export const parseListUsersQuery = (params: URLSearchParams): ListUsersQuery => {
   const raw = {
@@ -162,21 +147,11 @@ export const parseListUsersQuery = (params: URLSearchParams): ListUsersQuery => 
   return result.data;
 };
 
-export const parseRoleAssignmentInput = (input: unknown): ParseResult<RoleAssignmentInput> => {
-  const result = roleAssignmentSchema.safeParse(input);
-  if (!result.success) {
-    return { ok: false, message: firstIssueMessage(result.error) };
-  }
-  return { ok: true, data: result.data };
-};
+export const parseRoleAssignmentInput = (input: unknown): ParseResult<RoleAssignmentInput> =>
+  parseWithSchema(roleAssignmentSchema, input);
 
-export const parsePasswordChangeInput = (input: unknown): ParseResult<PasswordChangeInput> => {
-  const result = passwordChangeSchema.safeParse(input);
-  if (!result.success) {
-    return { ok: false, message: firstIssueMessage(result.error) };
-  }
-  return { ok: true, data: result.data };
-};
+export const parsePasswordChangeInput = (input: unknown): ParseResult<PasswordChangeInput> =>
+  parseWithSchema(passwordChangeSchema, input);
 
 export const buildDisplayName = ({
   title,

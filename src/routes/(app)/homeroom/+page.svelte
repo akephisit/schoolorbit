@@ -3,6 +3,8 @@
   import { Input } from '$lib/components/ui/input';
   import UserAutocomplete from '$lib/components/UserAutocomplete.svelte';
   import { Button } from '$lib/components/ui/button';
+  import { toast } from 'svelte-sonner';
+  import { parseApiError, firstFieldErrorMap } from '$lib/utils/api';
 
   type HR = { id: string; classCode: string; email: string; displayName: string };
 
@@ -11,6 +13,7 @@
 
   let classCode = $state('');
   let teacherEmail = $state('');
+  let fieldErrors = $state<Record<string, string>>({});
   
 
   async function loadAll() {
@@ -21,17 +24,35 @@
   $effect(() => { loading = true; (async () => { await loadAll(); loading = false; })(); });
 
   async function add() {
-    if (!classCode.trim() || !teacherEmail.trim()) return;
-    const res = await fetch('/homeroom/api/assignments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ classCode: classCode.trim(), teacherEmail: teacherEmail.trim() }) });
-    if (!res.ok) { alert('เพิ่มครูประจำชั้นไม่สำเร็จ'); return; }
+    fieldErrors = {};
+    if (!classCode.trim() || !teacherEmail.trim()) {
+      fieldErrors = {
+        ...(classCode.trim() ? {} : { classCode: 'กรุณากรอกห้องเรียน' }),
+        ...(teacherEmail.trim() ? {} : { teacherEmail: 'กรุณาเลือกอีเมลครู' })
+      };
+      toast.error('กรุณากรอกข้อมูลให้ครบ');
+      return;
+    }
+    const res = await fetch('/homeroom/api/assignments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ classCode: classCode.trim(), teacherEmail: teacherEmail.trim() })
+    });
+    if (!res.ok) {
+      const apiError = await parseApiError(res);
+      fieldErrors = firstFieldErrorMap(apiError.fieldErrors);
+      toast.error(apiError.message);
+      return;
+    }
     classCode=''; teacherEmail='';
+    fieldErrors = {};
     await loadAll();
   }
 
   async function remove(id: string) {
     if (!confirm('ลบรายการนี้หรือไม่?')) return;
     const res = await fetch(`/homeroom/api/assignments/${id}`, { method: 'DELETE' });
-    if (!res.ok) { alert('ลบไม่สำเร็จ'); return; }
+    if (!res.ok) { toast.error('ลบไม่สำเร็จ'); return; }
     await loadAll();
   }
 </script>
@@ -52,8 +73,14 @@
       </CardHeader>
       <CardContent class="space-y-3">
         <div class="flex flex-wrap gap-2 items-end">
-          <Input class="w-40" placeholder="ชั้น (เช่น ม.6/1)" bind:value={classCode} />
-          <div class="w-56"><UserAutocomplete bind:value={teacherEmail} placeholder="ค้นหาครู (พิมพ์ชื่อ/อีเมล)" /></div>
+          <div class="flex flex-col gap-1 w-40">
+            <Input placeholder="ชั้น (เช่น ม.6/1)" bind:value={classCode} class={fieldErrors.classCode ? 'border-red-500 focus-visible:ring-red-500' : ''} />
+            {#if fieldErrors.classCode}<p class="text-xs text-red-500">{fieldErrors.classCode}</p>{/if}
+          </div>
+          <div class="w-56 flex flex-col gap-1">
+            <UserAutocomplete bind:value={teacherEmail} placeholder="ค้นหาครู (พิมพ์ชื่อ/อีเมล)" />
+            {#if fieldErrors.teacherEmail}<p class="text-xs text-red-500">{fieldErrors.teacherEmail}</p>{/if}
+          </div>
           <Button onclick={add}>เพิ่ม</Button>
         </div>
 

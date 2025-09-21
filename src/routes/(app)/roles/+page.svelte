@@ -8,6 +8,7 @@
   import CheckIcon from '@lucide/svelte/icons/check';
   import { page } from '$app/stores';
   import { toast } from 'svelte-sonner';
+  import { parseApiError, firstFieldErrorMap } from '$lib/utils/api';
 
   type Role = { id: string; code: string; name: string };
   type Perm = { id: string; code: string; name: string };
@@ -28,10 +29,12 @@
   let newPermCode = $state('');
   let newPermName = $state('');
   let creatingPerm = $state(false);
+  let permFieldErrors = $state<Record<string, string>>({});
 
   // Inline edit role name
   let editingName = $state<Record<string, string>>({});
   let savingRole = $state<Record<string, boolean>>({});
+  let roleFieldErrors = $state<Record<string, string>>({});
 
   async function loadAll() {
     loading = true;
@@ -106,7 +109,13 @@
     savingRole[id] = true;
     try {
       const res = await fetch(`/roles/api/roles/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) {
+        const apiError = await parseApiError(res);
+        roleFieldErrors[id] = firstFieldErrorMap(apiError.fieldErrors).name;
+        toast.error(apiError.message);
+        return;
+      }
+      delete roleFieldErrors[id];
       await loadRoles();
       toast.success('อัปเดตชื่อบทบาทสำเร็จ');
     } catch (e) {
@@ -126,12 +135,26 @@
   }
 
   async function createPerm() {
-    if (!newPermCode.trim() || !newPermName.trim()) return;
+    permFieldErrors = {};
+    if (!newPermCode.trim() || !newPermName.trim()) {
+      permFieldErrors = {
+        ...(newPermCode.trim() ? {} : { code: 'กรุณากรอกโค้ดสิทธิ์' }),
+        ...(newPermName.trim() ? {} : { name: 'กรุณากรอกชื่อสิทธิ์' })
+      };
+      toast.error('กรุณากรอกข้อมูลให้ครบ');
+      return;
+    }
     creatingPerm = true;
     try {
       const res = await fetch('/roles/api/permissions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: newPermCode.trim(), name: newPermName.trim() }) });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) {
+        const apiError = await parseApiError(res);
+        permFieldErrors = firstFieldErrorMap(apiError.fieldErrors);
+        toast.error(apiError.message);
+        return;
+      }
       newPermCode = ''; newPermName = '';
+      permFieldErrors = {};
       await loadPerms();
       toast.success('เพิ่มสิทธิ์สำเร็จ');
     } catch (e) {
@@ -211,9 +234,15 @@
           <CardDescription>กำหนดสิทธิ์ให้กับบทบาทที่เลือก</CardDescription>
         </CardHeader>
         <CardContent class="space-y-4">
-          <div class="flex gap-2">
-            <Input placeholder="permission code (เช่น user:manage)" bind:value={newPermCode} />
-            <Input placeholder="ชื่อสิทธิ์ (ไทย)" bind:value={newPermName} />
+          <div class="flex flex-wrap gap-2 items-end">
+            <div class="flex flex-col gap-1 flex-1 min-w-40">
+              <Input placeholder="permission code (เช่น user:manage)" bind:value={newPermCode} class={permFieldErrors.code ? 'border-red-500 focus-visible:ring-red-500' : ''} />
+              {#if permFieldErrors.code}<p class="text-xs text-red-500">{permFieldErrors.code}</p>{/if}
+            </div>
+            <div class="flex flex-col gap-1 flex-1 min-w-40">
+              <Input placeholder="ชื่อสิทธิ์ (ไทย)" bind:value={newPermName} class={permFieldErrors.name ? 'border-red-500 focus-visible:ring-red-500' : ''} />
+              {#if permFieldErrors.name}<p class="text-xs text-red-500">{permFieldErrors.name}</p>{/if}
+            </div>
             <Button onclick={createPerm} disabled={creatingPerm}>{creatingPerm ? 'กำลังเพิ่ม...' : 'เพิ่มสิทธิ์'}</Button>
           </div>
 

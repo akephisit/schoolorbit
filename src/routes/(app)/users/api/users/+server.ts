@@ -5,6 +5,7 @@ import { appUser, userRole, role } from '$lib/server/schema';
 import { eq, ilike, inArray, or } from 'drizzle-orm';
 import { hash } from 'argon2';
 import { hashNationalId, encryptPII } from '$lib/server/crypto';
+import { validationError } from '$lib/server/validators/core';
 import {
   buildDisplayName,
   parseCreateUserInput,
@@ -72,14 +73,17 @@ export const POST: RequestHandler = async ({ locals, request }) => {
   const jsonBody = await request.json().catch(() => ({}));
   const parsed = parseCreateUserInput(jsonBody);
   if (!parsed.ok) {
-    return error(400, parsed.message);
+    return validationError(parsed.error);
   }
 
   const { email, displayName, title, firstName, lastName, password, nationalId, roles, status } = parsed.data;
 
   const resolvedDisplayName = displayName ?? buildDisplayName({ title, firstName, lastName });
   if (!resolvedDisplayName) {
-    return error(400, 'กรุณาระบุชื่อที่จะแสดงผลหรือใส่คำนำหน้า/ชื่อ/นามสกุลให้ครบ');
+    return validationError({
+      message: 'กรุณาระบุชื่อที่จะแสดงผลหรือใส่คำนำหน้า/ชื่อ/นามสกุลให้ครบ',
+      fieldErrors: { displayName: ['ต้องมีชื่อแสดงผล'] }
+    });
   }
 
   const passwordHash = password ? await hash(password) : null;

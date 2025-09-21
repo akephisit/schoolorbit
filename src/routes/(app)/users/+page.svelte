@@ -1,5 +1,4 @@
 <script lang="ts">
-  
   import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '$lib/components/ui/card';
   import { Input } from '$lib/components/ui/input';
   import { Button } from '$lib/components/ui/button';
@@ -8,6 +7,7 @@
   import { Label } from '$lib/components/ui/label';
   import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select';
   import { toast } from 'svelte-sonner';
+  import { parseApiError, firstFieldErrorMap } from '$lib/utils/api';
 
   type UserRow = {
     id: string;
@@ -36,6 +36,7 @@
   let cPassword = $state('');
   let cNationalId = $state('');
   let cRoles = $state(new Set<string>());
+  let cFieldErrors = $state<Record<string, string>>({});
 
   async function loadRoles() {
     const res = await fetch('/users/api/roles');
@@ -59,26 +60,39 @@
   $effect(() => { (async () => { await Promise.all([loadRoles(), loadUsers()]); })(); });
 
   async function createUser() {
-    if (!cEmail.trim() || !cFirstName.trim() || !cLastName.trim() || !cNationalId.trim()) { toast.error('กรุณากรอกอีเมล ชื่อ นามสกุล และเลขบัตร'); return; }
-    const digits = cNationalId.replace(/\D/g, '');
-    if (digits.length !== 13) { toast.error('เลขบัตรประชาชนต้องมี 13 หลัก'); return; }
-    const displayName = (cDisplayName.trim() || [cTitle, cFirstName, cLastName].filter(Boolean).join(' ')).trim();
-    if (!displayName) { toast.error('กรุณากรอกชื่อแสดงผลหรือระบุให้ครบ'); return; }
+    cFieldErrors = {};
     creating = true;
     try {
       const payload = {
         email: cEmail.trim(),
-        displayName,
+        displayName: cDisplayName.trim() || undefined,
         title: cTitle.trim() || undefined,
         firstName: cFirstName.trim(),
         lastName: cLastName.trim(),
         password: cPassword || undefined,
-        nationalId: digits,
+        nationalId: cNationalId,
         roles: Array.from(cRoles)
       };
-      const res = await fetch('/users/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-      if (!res.ok) throw new Error(await res.text());
-      cEmail = ''; cTitle = ''; cFirstName = ''; cLastName = ''; cDisplayName = ''; cPassword = ''; cNationalId = ''; cRoles = new Set();
+      const res = await fetch('/users/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        const apiError = await parseApiError(res);
+        cFieldErrors = firstFieldErrorMap(apiError.fieldErrors);
+        toast.error(apiError.message);
+        return;
+      }
+      cEmail = '';
+      cTitle = '';
+      cFirstName = '';
+      cLastName = '';
+      cDisplayName = '';
+      cPassword = '';
+      cNationalId = '';
+      cRoles = new Set();
+      cFieldErrors = {};
       await loadUsers();
       toast.success('สร้างผู้ใช้สำเร็จ');
     } catch (e) {
@@ -98,6 +112,7 @@
   let editStatus = $state<Record<string, string>>({});
   let editPassword = $state<Record<string, string>>({});
   let editRoles = $state<Record<string, Set<string>>>({});
+  let editFieldErrors = $state<Record<string, Record<string, string>>>({});
 
   // Map role code -> display name from API
   const roleNameMap = $derived(new Map(roles.map(r => [r.code, r.name] as const)));
@@ -118,6 +133,7 @@
     editStatus[u.id] = u.status;
     editPassword[u.id] = '';
     editRoles[u.id] = new Set(u.roles);
+    editFieldErrors[u.id] = {};
   }
 
   function cancelEdit(id: string) {
@@ -130,34 +146,54 @@
     delete editStatus[id];
     delete editPassword[id];
     delete editRoles[id];
+    delete editFieldErrors[id];
   }
 
   async function saveEdit(u: UserRow) {
-    const title = (editTitle[u.id] ?? '').trim();
-    const firstName = (editFirstName[u.id] ?? '').trim();
-    const lastName = (editLastName[u.id] ?? '').trim();
-    if (!firstName || !lastName) { toast.error('กรุณากรอกชื่อและนามสกุล'); return; }
+    editFieldErrors[u.id] = {};
+    const rawTitle = (editTitle[u.id] ?? '').trim();
+    const rawFirstName = (editFirstName[u.id] ?? '').trim();
+    const rawLastName = (editLastName[u.id] ?? '').trim();
     const displayNameInput = (editDisplayName[u.id] ?? '').trim();
-    const displayName = (displayNameInput || [title, firstName, lastName].filter(Boolean).join(' ')).trim();
-    if (!displayName) { toast.error('กรุณากรอกชื่อแสดงผล'); return; }
-    const upd = {
-      email: editEmail[u.id]?.trim(),
-      title,
-      firstName,
-      lastName,
-      displayName,
+    const payload = {
+      email: editEmail[u.id]?.trim() || undefined,
+      title: rawTitle ? rawTitle : null,
+      firstName: rawFirstName,
+      lastName: rawLastName,
+      displayName: displayNameInput || undefined,
       status: editStatus[u.id]
     };
-    const res = await fetch(`/users/api/users/${u.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(upd) });
-    if (!res.ok) { toast.error('บันทึกข้อมูลผู้ใช้ไม่สำเร็จ'); return; }
+    const res = await fetch(`/users/api/users/${u.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const apiError = await parseApiError(res);
+      editFieldErrors[u.id] = firstFieldErrorMap(apiError.fieldErrors);
+      toast.error(apiError.message);
+      return;
+    }
     // roles
     const rolesRes = await fetch(`/users/api/users/${u.id}/roles`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roles: Array.from(editRoles[u.id]) }) });
-    if (!rolesRes.ok) { toast.error('บันทึกบทบาทไม่สำเร็จ'); return; }
+    if (!rolesRes.ok) {
+      const apiError = await parseApiError(rolesRes);
+      toast.error(apiError.message);
+      return;
+    }
     // password if provided
     const pwd = editPassword[u.id];
     if (pwd && pwd.length >= 8) {
       const passRes = await fetch(`/users/api/users/${u.id}/password`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pwd }) });
-      if (!passRes.ok) { toast.error('เปลี่ยนรหัสผ่านไม่สำเร็จ'); }
+      if (!passRes.ok) {
+        const apiError = await parseApiError(passRes);
+        editFieldErrors[u.id] = {
+          ...(editFieldErrors[u.id] || {}),
+          password: apiError.fieldErrors.password?.[0] || apiError.message
+        };
+        toast.error(apiError.message);
+        return;
+      }
     }
     await loadUsers();
     cancelEdit(u.id);
@@ -192,26 +228,33 @@
     </CardHeader>
     <CardContent class="space-y-3">
       <div class="grid grid-cols-1 md:grid-cols-6 gap-3">
-        <div class="md:col-span-2">
-          <Input placeholder="อีเมล" bind:value={cEmail} />
+        <div class="md:col-span-2 flex flex-col gap-1">
+          <Input placeholder="อีเมล" bind:value={cEmail} class={cFieldErrors.email ? 'border-red-500 focus-visible:ring-red-500' : ''} />
+          {#if cFieldErrors.email}<p class="text-xs text-red-500">{cFieldErrors.email}</p>{/if}
         </div>
-        <div>
-          <Input placeholder="คำนำหน้า (เช่น นาย)" bind:value={cTitle} />
+        <div class="flex flex-col gap-1">
+          <Input placeholder="คำนำหน้า (เช่น นาย)" bind:value={cTitle} class={cFieldErrors.title ? 'border-red-500 focus-visible:ring-red-500' : ''} />
+          {#if cFieldErrors.title}<p class="text-xs text-red-500">{cFieldErrors.title}</p>{/if}
         </div>
-        <div>
-          <Input placeholder="ชื่อ" bind:value={cFirstName} />
+        <div class="flex flex-col gap-1">
+          <Input placeholder="ชื่อ" bind:value={cFirstName} class={cFieldErrors.firstName ? 'border-red-500 focus-visible:ring-red-500' : ''} />
+          {#if cFieldErrors.firstName}<p class="text-xs text-red-500">{cFieldErrors.firstName}</p>{/if}
         </div>
-        <div>
-          <Input placeholder="นามสกุล" bind:value={cLastName} />
+        <div class="flex flex-col gap-1">
+          <Input placeholder="นามสกุล" bind:value={cLastName} class={cFieldErrors.lastName ? 'border-red-500 focus-visible:ring-red-500' : ''} />
+          {#if cFieldErrors.lastName}<p class="text-xs text-red-500">{cFieldErrors.lastName}</p>{/if}
         </div>
-        <div class="md:col-span-2">
-          <Input placeholder="ชื่อแสดงผล (เว้นว่างจะใช้ข้อมูลด้านบน)" bind:value={cDisplayName} />
+        <div class="md:col-span-2 flex flex-col gap-1">
+          <Input placeholder="ชื่อแสดงผล (เว้นว่างจะใช้ข้อมูลด้านบน)" bind:value={cDisplayName} class={cFieldErrors.displayName ? 'border-red-500 focus-visible:ring-red-500' : ''} />
+          {#if cFieldErrors.displayName}<p class="text-xs text-red-500">{cFieldErrors.displayName}</p>{/if}
         </div>
-        <div class="md:col-span-2">
-          <Input placeholder="รหัสผ่าน (อย่างน้อย 8 ตัว)" type="password" bind:value={cPassword} />
+        <div class="md:col-span-2 flex flex-col gap-1">
+          <Input placeholder="รหัสผ่าน (อย่างน้อย 8 ตัว)" type="password" bind:value={cPassword} class={cFieldErrors.password ? 'border-red-500 focus-visible:ring-red-500' : ''} />
+          {#if cFieldErrors.password}<p class="text-xs text-red-500">{cFieldErrors.password}</p>{/if}
         </div>
-        <div class="md:col-span-2">
-          <Input placeholder="เลขบัตรประชาชน 13 หลัก" bind:value={cNationalId} maxlength={13} />
+        <div class="md:col-span-2 flex flex-col gap-1">
+          <Input placeholder="เลขบัตรประชาชน 13 หลัก" bind:value={cNationalId} maxlength={13} class={cFieldErrors.nationalId ? 'border-red-500 focus-visible:ring-red-500' : ''} />
+          {#if cFieldErrors.nationalId}<p class="text-xs text-red-500">{cFieldErrors.nationalId}</p>{/if}
         </div>
         <div class="md:col-span-6 flex flex-wrap items-center gap-3">
           {#each roles as r}
@@ -254,7 +297,10 @@
               <TableRow>
                 <TableCell>
                   {#if editing[u.id]}
-                    <Input bind:value={editEmail[u.id]} />
+                    <div class="flex flex-col gap-1">
+                      <Input bind:value={editEmail[u.id]} class={editFieldErrors[u.id]?.email ? 'border-red-500 focus-visible:ring-red-500' : ''} />
+                      {#if editFieldErrors[u.id]?.email}<p class="text-xs text-red-500">{editFieldErrors[u.id]?.email}</p>{/if}
+                    </div>
                   {:else}
                     {u.email}
                   {/if}
@@ -262,10 +308,22 @@
                 <TableCell>
                   {#if editing[u.id]}
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
-                      <Input placeholder="คำนำหน้า" bind:value={editTitle[u.id]} />
-                      <Input placeholder="ชื่อ" bind:value={editFirstName[u.id]} />
-                      <Input placeholder="นามสกุล" bind:value={editLastName[u.id]} />
-                      <Input placeholder="ชื่อแสดงผล" bind:value={editDisplayName[u.id]} />
+                      <div class="flex flex-col gap-1">
+                        <Input placeholder="คำนำหน้า" bind:value={editTitle[u.id]} class={editFieldErrors[u.id]?.title ? 'border-red-500 focus-visible:ring-red-500' : ''} />
+                        {#if editFieldErrors[u.id]?.title}<p class="text-xs text-red-500">{editFieldErrors[u.id]?.title}</p>{/if}
+                      </div>
+                      <div class="flex flex-col gap-1">
+                        <Input placeholder="ชื่อ" bind:value={editFirstName[u.id]} class={editFieldErrors[u.id]?.firstName ? 'border-red-500 focus-visible:ring-red-500' : ''} />
+                        {#if editFieldErrors[u.id]?.firstName}<p class="text-xs text-red-500">{editFieldErrors[u.id]?.firstName}</p>{/if}
+                      </div>
+                      <div class="flex flex-col gap-1">
+                        <Input placeholder="นามสกุล" bind:value={editLastName[u.id]} class={editFieldErrors[u.id]?.lastName ? 'border-red-500 focus-visible:ring-red-500' : ''} />
+                        {#if editFieldErrors[u.id]?.lastName}<p class="text-xs text-red-500">{editFieldErrors[u.id]?.lastName}</p>{/if}
+                      </div>
+                      <div class="flex flex-col gap-1">
+                        <Input placeholder="ชื่อแสดงผล" bind:value={editDisplayName[u.id]} class={editFieldErrors[u.id]?.displayName ? 'border-red-500 focus-visible:ring-red-500' : ''} />
+                        {#if editFieldErrors[u.id]?.displayName}<p class="text-xs text-red-500">{editFieldErrors[u.id]?.displayName}</p>{/if}
+                      </div>
                     </div>
                   {:else}
                     <div class="space-y-1">
@@ -303,7 +361,10 @@
                       {/each}
                     </div>
                     <div class="mt-2">
-                      <Input placeholder="ตั้งรหัสผ่านใหม่ (>=8)" type="password" bind:value={editPassword[u.id]} />
+                      <div class="flex flex-col gap-1">
+                        <Input placeholder="ตั้งรหัสผ่านใหม่ (>=8)" type="password" bind:value={editPassword[u.id]} class={editFieldErrors[u.id]?.password ? 'border-red-500 focus-visible:ring-red-500' : ''} />
+                        {#if editFieldErrors[u.id]?.password}<p class="text-xs text-red-500">{editFieldErrors[u.id]?.password}</p>{/if}
+                      </div>
                     </div>
                   {:else}
                     <span class="text-sm">{u.roles.map((c) => roleNameMap.get(c) || c).join(', ')}</span>
