@@ -1,21 +1,10 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { db } from '$lib/server/database';
-import { featureToggle, appUser } from '$lib/server/schema';
-import { asc, eq } from 'drizzle-orm';
-
-interface FeatureItem {
-	code: string;
-	name: string;
-	description: string | null;
-	enabled: boolean;
-	updatedAt: Date | null;
-	updatedBy: string | null;
-	updatedByName: string | null;
-}
+import type { FeatureAdminItem } from '$lib/server/features-admin';
+import { listFeatureAdminItems } from '$lib/server/features-admin';
 
 interface FeatureResponse {
-	data: FeatureItem[];
+	data: FeatureAdminItem[];
 }
 
 export const GET: RequestHandler = async ({ locals }) => {
@@ -23,19 +12,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 		return error(403, 'Forbidden');
 	}
 
-	const rows = await db
-		.select({
-			code: featureToggle.code,
-			name: featureToggle.name,
-			description: featureToggle.description,
-			enabled: featureToggle.enabled,
-			updatedAt: featureToggle.updatedAt,
-			updatedBy: featureToggle.updatedBy,
-			updatedByName: appUser.displayName
-		})
-		.from(featureToggle)
-		.leftJoin(appUser, eq(featureToggle.updatedBy, appUser.id))
-		.orderBy(asc(featureToggle.code));
+	const items = await listFeatureAdminItems(locals);
 
-	return json({ data: rows } satisfies FeatureResponse);
+	return json({ data: items } satisfies FeatureResponse);
 };

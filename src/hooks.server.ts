@@ -39,6 +39,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	
 	event.locals.me = me;
 	event.locals.features = null;
+	event.locals.featureRuntime = null;
 	
 	const response = await resolve(event);
 	

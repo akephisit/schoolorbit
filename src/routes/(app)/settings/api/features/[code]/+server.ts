@@ -1,10 +1,9 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { db } from '$lib/server/database';
-import { featureToggle, appUser } from '$lib/server/schema';
-import { eq } from 'drizzle-orm';
 import { validationError } from '$lib/server/validators/core';
 import { parseFeatureUpdateInput } from '$lib/server/validators/features';
+import { setFeatureEnabled } from '$lib/server/feature-runtime';
+import { listFeatureAdminItems } from '$lib/server/features-admin';
 
 export const PATCH: RequestHandler = async ({ locals, params, request }) => {
 	if (!locals.me?.data?.perms?.includes('feature:manage')) {
@@ -22,36 +21,13 @@ export const PATCH: RequestHandler = async ({ locals, params, request }) => {
 		return validationError(parsed.error);
 	}
 
-  const result = await db
-		.update(featureToggle)
-		.set({
-			enabled: parsed.data.enabled,
-			updatedBy: locals.me?.data?.user?.id ?? null,
-			updatedAt: new Date()
-		})
-		.where(eq(featureToggle.code, code))
-		.returning({ code: featureToggle.code });
+	await setFeatureEnabled(code, parsed.data.enabled, locals);
 
-	if (!result.length) {
+	const features = await listFeatureAdminItems(locals);
+	const updated = features.find((item) => item.code === code);
+	if (!updated) {
 		return error(404, 'Feature not found');
 	}
 
-	locals.features = null;
-
-  const [row] = await db
-		.select({
-			code: featureToggle.code,
-			name: featureToggle.name,
-			description: featureToggle.description,
-			enabled: featureToggle.enabled,
-			updatedAt: featureToggle.updatedAt,
-			updatedBy: featureToggle.updatedBy,
-			updatedByName: appUser.displayName
-		})
-		.from(featureToggle)
-		.leftJoin(appUser, eq(featureToggle.updatedBy, appUser.id))
-		.where(eq(featureToggle.code, code))
-		.limit(1);
-
-	return json({ data: row });
+	return json({ data: updated });
 };

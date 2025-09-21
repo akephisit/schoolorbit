@@ -1,3 +1,5 @@
+import type { FeatureRuntimeSnapshot } from '$lib/features';
+
 // See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
 declare global {
@@ -17,6 +19,7 @@ declare global {
 				}
 			} | null;
 			features?: string[] | null;
+			featureRuntime?: FeatureRuntimeSnapshot | null;
 		}
 		// interface PageData {}
 		// interface PageState {}
